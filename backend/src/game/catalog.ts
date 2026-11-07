@@ -1,0 +1,43 @@
+/** Static game rules. The backend is the only authority on these numbers; the client just displays them. */
+
+export interface Crop {
+  id: 'carrot' | 'tomato' | 'pumpkin';
+  name: string;
+  seedPrice: number; // coins to buy one seed
+  sellPrice: number; // coins when selling one harvested crop
+  growthSeconds: number; // short on purpose, for live demos
+  xpReward: number; // XP per harvest
+  unlockLevel: number;
+}
+
+export const CROP_LIST: readonly Crop[] = [
+  { id: 'carrot', name: 'Carrot', seedPrice: 10, sellPrice: 18, growthSeconds: 15, xpReward: 8, unlockLevel: 1 },
+  { id: 'tomato', name: 'Tomato', seedPrice: 25, sellPrice: 55, growthSeconds: 30, xpReward: 20, unlockLevel: 1 },
+  { id: 'pumpkin', name: 'Pumpkin', seedPrice: 60, sellPrice: 140, growthSeconds: 60, xpReward: 50, unlockLevel: 2 },
+];
+
+export const CROPS: Readonly<Record<string, Crop>> = Object.fromEntries(CROP_LIST.map((c) => [c.id, c]));
+
+export const GRID_ROWS = 3;
+export const GRID_COLS = 3;
+export const GRID_SIZE = GRID_ROWS * GRID_COLS;
+
+export const STARTING_COINS = 50;
+export const STARTING_SEEDS: Readonly<Record<string, number>> = { carrot: 3 };
+export const MAX_BUY_QUANTITY = 99;
+
+/** Total XP needed to reach a level: L1=0, L2=50, L3=150, L4=300 ... */
+export const xpForLevel = (level: number) => 25 * level * (level - 1);
+
+export function levelFromXp(xp: number): number {
+  let level = 1;
+  while (xp >= xpForLevel(level + 1)) level += 1;
+  return level;
+}
+
+export function levelProgress(xp: number) {
+  const level = levelFromXp(xp);
+  const levelStartXp = xpForLevel(level);
+  const nextLevelXp = xpForLevel(level + 1);
+  return { level, levelStartXp, nextLevelXp, xpIntoLevel: xp - levelStartXp, xpForNextLevel: nextLevelXp - levelStartXp };
+}
