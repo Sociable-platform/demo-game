@@ -1,5 +1,5 @@
 // Thin client for the Harvest Village API. Sessions live in an HttpOnly cookie that the browser sends
-// automatically; this code never sees or stores a token.
+// automatically. Clan player tokens are returned on demand and never persisted here.
 
 export class ApiError extends Error {
   constructor(status, code, message, details) {
@@ -52,3 +52,9 @@ export const api = {
   sell: (cropId, quantity) => request('POST', '/game/sell', { cropId, quantity }),
   devDemoAccounts: (reset = false) => request('POST', '/dev/demo-accounts', { reset }),
 };
+
+// The SDK calls this on demand and validates the returned token; no storage or logging.
+export async function getClanPlayerToken() {
+  const data = await request('POST', '/clan/token', {});
+  return data?.token;
+}

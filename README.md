@@ -3,8 +3,8 @@
 A cozy farming browser game with a real backend: buy seeds, plant, wait, harvest and sell. Accounts, farms and
 progress live in SQLite and the server is the single authority for coins, inventory, crop growth and rewards.
 
-This is the **standalone game only**. It deliberately contains no clan, chat, invitation or community features and
-no SDK code. See [Future SDK integration](#future-sdk-integration).
+The farming game retains its own login and database. An optional Clan player-token bridge and SDK Discover
+panel are included. See [Clan Platform integration](#clan-platform-integration).
 
 | Part | Tech |
 | --- | --- |
@@ -25,7 +25,7 @@ npm run dev
 Open **http://localhost:5173**. That starts the API (port 3001) and the Vite dev server (port 5173, proxies `/api`).
 The database file is created automatically at `backend/data/harvest.db` and migrations run on startup.
 
-Optional: `cp .env.example .env` to change ports or settings. Every value has a working default and there are no secrets to configure.
+Optional: `cp .env.example .env` to change ports or settings. Farming needs no secrets. Clan authentication optionally needs a server-only API key.
 
 ### Windows PowerShell
 
@@ -81,7 +81,7 @@ Level N needs `25·N·(N-1)` total XP (L2 = 50, L3 = 150, L4 = 300). The farm is
 ## Tests
 
 ```bash
-npm test         # backend (28 tests) + frontend (4 tests)
+npm test         # backend (52 tests) + frontend (8 tests)
 npm run e2e      # ~20 s: starts a real server, plays the full loop, restarts it, checks races + persistence
 ```
 
@@ -91,6 +91,7 @@ npm run e2e      # ~20 s: starts a real server, plays the full loop, restarts it
 backend/src/
   app.ts            wires modules together (the only place auth and game meet)
   auth/             passwords (scrypt), sessions, requireAuth, /api/auth routes. Knows nothing about the game.
+  clan/             optional authenticated player-token bridge to Platform; no farming logic
   game/             catalog (rules), service (authoritative logic + transactions), /api/game routes
   db/               connection, migration runner, migrations/*.sql
   dev/              demo accounts (development only)
@@ -109,6 +110,7 @@ All JSON under `/api`. Errors always look like `{ "error": { "code": "not_ready"
 | --- | --- | --- |
 | POST | `/auth/register`, `/auth/login` | Create account / log in (sets the session cookie) |
 | POST | `/auth/logout` | Destroys the session server-side and clears the cookie |
+| POST | `/clan/token` | Requires the existing game session; returns only `{ token }` from Clan Platform |
 | GET | `/auth/me` | Current player (id, username) |
 | GET | `/game/state` | Profile, plots with timestamps, inventory, crop catalog, server time |
 | POST | `/game/shop/buy` `{cropId, quantity}` | Buy seeds |
@@ -133,11 +135,88 @@ Error codes: `unauthorized`, `invalid_credentials`, `username_taken`, `validatio
 - **No duplicate rewards or spending**: every action runs in `BEGIN IMMEDIATE`, and each change is a conditional `UPDATE` that re-checks its precondition (`coins >= cost`, `quantity >= n`, `crop_id IS NOT NULL AND ready_at <= now`). A failed check throws and rolls the whole action back. `CHECK` constraints stop negative coins/inventory at the database level.
 - **Headers**: `helmet` (CSP, nosniff, …); API responses are `no-store`. The frontend renders text through React (no `innerHTML`).
 
-## Future SDK integration
+## Clan Platform integration
 
-- Auth and game are separate modules joined only in `app.ts`; the game takes a verified `userId` and nothing else.
-- **The game's session cookie is not, and must not be treated as, an SDK player token.** That exchange (the architecture doc's `POST /players/auth` flow, where the game's *server* trades an API key for a short-lived token) is intentionally left for a separate task. `auth/` is where a future "issue SDK token for the logged-in player" endpoint would sit.
-- `frontend/src/App.jsx` renders an empty `#community-overlay-root` (fixed, bottom-right) and the layout keeps `--community-reserve` of space free at the bottom (`styles.css`). Nothing renders there today: no buttons, no placeholders.
+For the ordered request flow, file responsibilities, and a checklist for adding a second widget, see
+[Clan widget flow and adding another widget](docs/clan-widget-flow.md).
+
+Keep using the existing game registration/login. After login, the browser can call `POST /api/clan/token`
+with the game session cookie and an empty body (or `{}`). The game server obtains a player token from
+Platform and returns **only `{ "token": "..." }`**. The game session cookie is not a Clan player token.
+
+Set these optional variables in the repository-root `.env` or the game server's environment:
+
+```dotenv
+CLAN_PLATFORM_URL=http://localhost:8081
+CLAN_GAME_API_KEY=replace-with-the-key-issued-for-your-game
+```
+
+`CLAN_PLATFORM_URL` is an HTTP(S) service base URL, without the player-auth path, query, fragment or credentials.
+An optional reverse-proxy path prefix is preserved. Use HTTPS outside local development.
+`CLAN_GAME_API_KEY` is a secret, used only by the backend. Neither setting is returned by `/api/config`;
+never put them in `VITE_*` variables, browser code, URLs, logs or source control. `.env` is ignored.
+The game does not create a key or run Platform for you.
+
+Confirmed against the local `clan-backend` checkout on 2026-11-08:
+`services/platform/internal/handler/players.go`, `handler.go`, `players_test.go`, and
+`services/platform/internal/service/players.go` (checkout HEAD `6d05bceb165a0b32d7c8e45f0900b9032ed5f39c`).
+This is source-contract verification, not a live-service or latest-remote verification.
+
+| Platform contract | Value |
+| --- | --- |
+| Request | `POST /api/v1/players/auth`, JSON content type |
+| Authentication | `X-API-Key: <server-only game key>` |
+| Body | `{ "externalPlayerId": "<users.id>", "displayName": "<users.username>" }` |
+| Success | HTTP 200, `{ "token": "...", "expiresIn": 3600 }` (seconds) |
+| Game identity | Derived by Platform from the API key, never supplied by the browser |
+
+The bridge uses `req.auth.userId` (the stable database ID, unchanged across login sessions) and
+`req.auth.username` from the existing session middleware. Request bodies, query parameters and client headers
+cannot override player identity, display name, API key or game. Only `token` is forwarded from a valid response;
+`expiresIn` and extra upstream fields are discarded. Responses use `Cache-Control: no-store`.
+
+The frontend exports `getClanPlayerToken()` from `frontend/src/api.js`. It calls the game endpoint with
+`credentials: 'same-origin'` and returns the token string. Call it on demand or later supply it as an SDK
+callback; it is not automatically called on render and does not persist/log tokens.
+
+After login, click **Open clans** to mount the bundled SDK's existing `mountExperience()` Discover panel.
+The SDK owns list/search/join requests and errors, using `getClanPlayerToken` as its token callback. Closing,
+logging out, or changing accounts destroys the widget. Distinct React sibling keys prevent duplicate game panels.
+There is no game-owned `/players/me` bootstrap or membership-based screen selection. Create and Clan Home are
+not implemented by this SDK panel, so no Create button is supplied. A successful join stays on Discover.
+
+Set public `VITE_CLAN_SOCIAL_URL=http://localhost:8082` in the root `.env` for development, or an HTTPS Social URL
+before a production build. Development defaults to localhost:8082; production requires this setting.
+Vite loads root `.env` but exposes only `VITE_*` settings: keep the Platform URL and API key without that prefix.
+Restart Vite and the game backend after changing settings; rebuild for production. The game CSP permits the
+configured Social origin alongside its own origin. Social's `SOCIAL_CORS_ORIGINS` must include the
+game's exact browser origin (for example `http://localhost:5173`). These are distinct services: never point the
+SDK at the game API or Platform port 8081.
+
+Appearance is temporarily local in `frontend/src/community/discoverConfig.json`, with
+`kind: "clan-complete-ui", schemaVersion: 1`. The SDK's default adapter maps the confirmed Social `ClanList`
+contract (`{ clans: [{ id, name, memberCount, maxMembers }] }`) to view models. No host adapter is needed.
+Published-config loading can replace the local JSON later; the current SDK has no complete-experience remote
+loader, and its legacy remote chat loader does not accept this format. See [integration audit](docs/clan-sdk-audit.md).
+
+Failure behavior:
+
+| Condition | Game response |
+| --- | --- |
+| Missing/expired game session | 401 `unauthorized` |
+| Missing or invalid Clan settings | 503 `clan_not_configured` |
+| Platform HTTP failure, network failure, redirect, or malformed token response | 502 `clan_upstream_error` |
+| Five-second deadline exceeded (including response-body loading) | 504 `clan_upstream_timeout` |
+
+Upstream details/headers are not forwarded or logged. In particular, a rejected API key does not become a game
+login 401. No automatic retries or redirect following occur. Missing Clan configuration does not prevent server
+startup, login, or farming.
+
+`backend/tests/clan.test.ts` uses mocked Platform fetch responses, real game sessions and SQLite to check
+identity isolation, overrides, failures/timeouts, and secret filtering. `frontend/src/api.test.js` checks the helper.
+`frontend/src/community/discover.test.js` exercises SDK list/search/join with the game token callback using
+mock HTTP responses. These mocks do not verify Platform JWT signing, key validity, or deployed connectivity. To verify live, configure
+your Platform URL/key, log into the game, and explicitly call the helper; never print/store its returned token.
 
 ## Limitations
 
