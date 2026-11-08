@@ -1,9 +1,9 @@
 {
   "kind": "clan-complete-ui",
   "theme": {
-    "accent": "#E779AA",
-    "background": "#010f56",
-    "text": "#2e2eff",
+    "accent": "#8B65EE",
+    "background": "#171923",
+    "text": "#F4F4F9",
     "radius": 16,
     "buttonRadius": 8,
     "inputRadius": 8,
@@ -435,7 +435,7 @@
   "emblems": {
     "allowUpload": true,
     "maxMB": 2,
-    "shape": "circle",
-    "fit": "contain"
+    "shape": "rounded",
+    "fit": "cover"
   }
 }

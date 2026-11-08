@@ -81,7 +81,7 @@ Level N needs `25·N·(N-1)` total XP (L2 = 50, L3 = 150, L4 = 300). The farm is
 ## Tests
 
 ```bash
-npm test         # backend (52 tests) + frontend (8 tests)
+npm test         # backend (52 tests) + frontend (14 tests)
 npm run e2e      # ~20 s: starts a real server, plays the full loop, restarts it, checks races + persistence
 ```
 
@@ -179,25 +179,31 @@ The frontend exports `getClanPlayerToken()` from `frontend/src/api.js`. It calls
 `credentials: 'same-origin'` and returns the token string. Call it on demand or later supply it as an SDK
 callback; it is not automatically called on render and does not persist/log tokens.
 
-After login, click **Open clans** to mount the bundled SDK's existing `mountExperience()` Discover panel.
-The SDK owns list/search/join requests and errors, using `getClanPlayerToken` as its token callback. Closing,
-logging out, or changing accounts destroys the widget. Distinct React sibling keys prevent duplicate game panels.
-There is no game-owned `/players/me` bootstrap or membership-based screen selection. Create and Clan Home are
-not implemented by this SDK panel, so no Create button is supplied. A successful join stays on Discover.
+After login, click **Open clans**. The game initializes the SDK with public `VITE_GAME_ID`,
+`VITE_PLATFORM_URL`, and `VITE_SOCIAL_URL`, plus the existing `getClanPlayerToken` callback. It mounts with
+`sdk.mountExperience({ container })` and handles `widget.ready`; the SDK owns published-config fetching,
+caching, fallback, default response adapters, and navigation. Closing/logout/account changes destroy the widget,
+and stale readiness results cannot update a newer instance. No game-owned Social bootstrap/screens are added.
 
-Set public `VITE_CLAN_SOCIAL_URL=http://localhost:8082` in the root `.env` for development, or an HTTPS Social URL
-before a production build. Development defaults to localhost:8082; production requires this setting.
-Vite loads root `.env` but exposes only `VITE_*` settings: keep the Platform URL and API key without that prefix.
-Restart Vite and the game backend after changing settings; rebuild for production. The game CSP permits the
-configured Social origin alongside its own origin. Social's `SOCIAL_CORS_ORIGINS` must include the
-game's exact browser origin (for example `http://localhost:5173`). These are distinct services: never point the
-SDK at the game API or Platform port 8081.
+Set these public values in the root `.env` and publish that game's configuration in Platform:
 
-Appearance is temporarily local in `frontend/src/community/discoverConfig.json`, with
-`kind: "clan-complete-ui", schemaVersion: 1`. The SDK's default adapter maps the confirmed Social `ClanList`
-contract (`{ clans: [{ id, name, memberCount, maxMembers }] }`) to view models. No host adapter is needed.
-Published-config loading can replace the local JSON later; the current SDK has no complete-experience remote
-loader, and its legacy remote chat loader does not accept this format. See [integration audit](docs/clan-sdk-audit.md).
+```dotenv
+VITE_GAME_ID=<the-game-id-associated-with-CLAN_GAME_API_KEY>
+VITE_PLATFORM_URL=http://localhost:8081
+VITE_SOCIAL_URL=http://localhost:8082
+```
+
+The SDK used by this game must implement the Platform loader and `widget.ready`. Set tooling-only
+`CLAN_SDK_ENTRY` to its `src/index.js` when using a separate checkout. The older nested SDK copy lacks that API;
+this workspace now resolves the newer Desktop checkout without editing either SDK. Restart Vite after changing
+`.env` or the SDK path, and rebuild production assets. The game no longer imports its old local JSON and makes
+no `/__dev__/chat-config` request. The edited JSON file is preserved as an unused reference.
+
+No developer token or secret API key belongs in a `VITE_*` variable. The game API key stays backend-only.
+Platform and Social CORS must allow the game's origin. The unchanged backend still reads
+`VITE_CLAN_SOCIAL_URL` for Social CSP: keep it equal to `VITE_SOCIAL_URL`. For production, configure a deployment
+reverse proxy/CSP that permits both public services; the existing backend CSP does not allow a separate Platform
+origin. No backend change is included here. See [published-widget setup](docs/published-widget-setup.md).
 
 Failure behavior:
 

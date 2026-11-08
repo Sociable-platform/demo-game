@@ -1,7 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { init, validateExperienceConfig } from 'clan-sdk';
+import { init } from 'clan-sdk';
 import { getClanPlayerToken } from '../api.js';
-import config from './discoverConfig.json';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -17,7 +16,6 @@ it('connects the SDK list/search/join flow to the game token endpoint (mock HTTP
   }));
   const sdk = init({ socialUrl: 'https://social.test', getPlayerToken: getClanPlayerToken });
   expect(calls).toEqual([]);
-  expect(validateExperienceConfig(config)).toBe(config);
   expect(await sdk.listClans({ q: 'Farmers' })).toEqual({ clans: [clan] });
   await sdk.joinClan('clan-1');
   const socialCalls = calls.filter(call => call.url.startsWith('https://social.test'));
