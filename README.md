@@ -193,11 +193,37 @@ configured Social origin alongside its own origin. Social's `SOCIAL_CORS_ORIGINS
 game's exact browser origin (for example `http://localhost:5173`). These are distinct services: never point the
 SDK at the game API or Platform port 8081.
 
+<<<<<<< Updated upstream
 Appearance is temporarily local in `frontend/src/community/discoverConfig.json`, with
 `kind: "clan-complete-ui", schemaVersion: 1`. The SDK's default adapter maps the confirmed Social `ClanList`
 contract (`{ clans: [{ id, name, memberCount, maxMembers }] }`) to view models. No host adapter is needed.
 Published-config loading can replace the local JSON later; the current SDK has no complete-experience remote
 loader, and its legacy remote chat loader does not accept this format. See [integration audit](docs/clan-sdk-audit.md).
+=======
+```dotenv
+VITE_GAME_ID=<the-game-id-associated-with-CLAN_GAME_API_KEY>
+VITE_PLATFORM_URL=http://localhost:8081
+VITE_SOCIAL_URL=http://localhost:8082
+```
+
+The SDK used by this game must implement the Platform loader, `widget.ready`, and shared `@clan/ui` rendering.
+Set tooling-only `CLAN_SDK_ENTRY` to its `src/index.js` when using a separate checkout, and install that SDK's
+dependencies so its canonical `@clan/ui` package resolves. The older nested SDK copy is not used; this workspace
+resolves the updated Desktop checkout without editing either SDK. Restart Vite after changing `.env` or the SDK
+path, and rebuild production assets. The obsolete game JSON was removed after checking usages; the game makes
+no `/__dev__/chat-config` request and has no private copy of SDK screens or adapters.
+
+The SDK owns membership bootstrap (`myClan`), Discover/Create/Home/Members navigation and live Social actions.
+It intentionally makes no hidden `/players/me` request. Join/Create events show game notifications; shared UI
+positioning, sizes and styles come entirely from the SDK. See the [live integration report](docs/shared-widget-live-report.md)
+for browser verification, local test records and current SDK capability gaps.
+
+No developer token or secret API key belongs in a `VITE_*` variable. The game API key stays backend-only.
+Platform and Social CORS must allow the game's origin. The unchanged backend still reads
+`VITE_CLAN_SOCIAL_URL` for Social CSP: keep it equal to `VITE_SOCIAL_URL`. For production, configure a deployment
+reverse proxy/CSP that permits both public services; the existing backend CSP does not allow a separate Platform
+origin. No backend change is included here. See [published-widget setup](docs/published-widget-setup.md).
+>>>>>>> Stashed changes
 
 Failure behavior:
 

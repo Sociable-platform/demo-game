@@ -139,8 +139,16 @@ describe('Clan player token bridge (mock Platform)', () => {
   it('retains origin protection and no-store on rejection', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    const { app, db } = makeApp({ env });
+    const { app, db } = makeApp({ env: {
+      ...env, APP_ORIGIN: 'http://localhost:5174,http://127.0.0.1:5174',
+    } });
     try {
+      // Both local frontend spellings pass the origin check but still require login.
+      for (const origin of ['http://localhost:5174', 'http://127.0.0.1:5174']) {
+        const unauthenticated = await request(app).post('/api/clan/token').set('Origin', origin).send({});
+        expect(unauthenticated.status).toBe(401);
+        expect(unauthenticated.body.error.code).toBe('unauthorized');
+      }
       const { agent } = await signup(app, 'clan_origin');
       const res = await agent.post('/api/clan/token').set('Origin', 'https://untrusted.test').send({});
       expect(res.status).toBe(403);

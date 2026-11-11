@@ -3,11 +3,12 @@ import { init } from 'clan-sdk';
 import { getClanPlayerToken } from '../api.js';
 import discoverConfig from '../community/discoverConfig.json';
 
-function DiscoverPanel({ notify }) {
+function ClanWidgetPanel({ notify }) {
   const container = useRef(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
+<<<<<<< Updated upstream
     setError('');
     const root = container.current;
     const onJoined = () => notify('success', 'You joined the clan!');
@@ -25,6 +26,22 @@ function DiscoverPanel({ notify }) {
       root.removeEventListener('clan-sdk:joined', onJoined);
       widget?.destroy();
     };
+=======
+    setStatus('loading');
+    return mountClanWidget({
+      container: container.current,
+      settings: {
+        gameId: import.meta.env.VITE_GAME_ID,
+        platformUrl: import.meta.env.VITE_PLATFORM_URL,
+        socialUrl: import.meta.env.VITE_SOCIAL_URL,
+      },
+      getPlayerToken: getClanPlayerToken,
+      onJoined: () => notify('success', 'You joined the clan!'),
+      onCreated: () => notify('success', 'Your clan was created!'),
+      onReady: () => setStatus('ready'),
+      onError: () => setStatus('error'),
+    });
+>>>>>>> Stashed changes
   }, [notify]);
 
   return <>{error && <p role="alert">{error}</p>}<div ref={container} /></>;
@@ -38,9 +55,9 @@ export default function CommunityClans({ notify }) {
   return (
     <div className="community-clans">
       {open && (
-        <aside id={panelId} className="community-clan-panel" aria-label="Discover clans"
+        <aside id={panelId} className="community-clan-panel" aria-label="Clan community"
           onKeyDown={event => { if (event.key === 'Escape') close(); }}>
-          <DiscoverPanel notify={notify} />
+          <ClanWidgetPanel notify={notify} />
         </aside>
       )}
       <button ref={toggle} className="btn btn-primary" aria-expanded={open} aria-controls={panelId}
