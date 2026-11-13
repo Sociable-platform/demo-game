@@ -1,3 +1,4 @@
+import {clearClanPlayerToken} from '../api.js';
 import { afterEach, expect, it, vi } from 'vitest';
 const { init } = vi.hoisted(() => ({ init: vi.fn() }));
 vi.mock('clan-sdk', () => ({ init }));
@@ -8,11 +9,11 @@ const deferred = () => {
   const promise = new Promise((a, b) => { resolve = a; reject = b; });
   return { promise, resolve, reject };
 };
-const settings = { gameId: 'game-1', platformUrl: 'https://platform.test', socialUrl: 'https://social.test' };
+const settings = { gameId: 'game-1', platformUrl: 'https://platform.test', socialUrl: 'https://social.test', realtimeUrl: 'https://realtime.test' };
 const callbacks = () => ({ getPlayerToken: vi.fn(), onJoined: vi.fn(), onReady: vi.fn(), onError: vi.fn() });
 afterEach(() => vi.resetAllMocks());
 
-it('passes the three settings and token callback, mounts without config, and handles ready', async () => {
+it('passes connection settings including Realtime and token callback, mounts without config, and handles ready', async () => {
   const pending = deferred();
   const widget = { ready: pending.promise, destroy: vi.fn() };
   const mountExperience = vi.fn(() => widget);
@@ -72,4 +73,11 @@ it.each(['resolve', 'reject'])('ignores stale %s after StrictMode cleanup and re
   expect(newHooks.onReady).toHaveBeenCalledOnce();
   secondCleanup();
   expect(activeMounts).toBe(0);
+});
+
+it('auth changes destroy the widget before resetting the SDK and suppress late callbacks',async()=>{
+ const pending=deferred(),order=[];const widget={ready:pending.promise,destroy:vi.fn(()=>order.push('destroy'))};
+ const resetPlayerSession=vi.fn(()=>order.push('reset'));init.mockReturnValue({mountExperience:()=>widget,resetPlayerSession});
+ const hooks=callbacks(),container=new EventTarget();const cleanup=mountClanWidget({container,settings,...hooks});clearClanPlayerToken();
+ expect(order).toEqual(['destroy','reset']);pending.resolve();await pending.promise;container.dispatchEvent(new Event('clan-sdk:joined'));expect(hooks.onReady).not.toHaveBeenCalled();expect(hooks.onJoined).not.toHaveBeenCalled();cleanup();clearClanPlayerToken();expect(widget.destroy).toHaveBeenCalledTimes(1);
 });

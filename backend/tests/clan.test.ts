@@ -31,7 +31,18 @@ describe('Clan player token bridge (mock Platform)', () => {
     } finally { db.close(); }
   });
 
-  it('uses only database identity, isolates players, and returns only token', async () => {
+  it('forced refresh always performs a fresh upstream exchange; no server token cache', async () => {
+    const fetchMock=vi.fn(async()=>new Response(JSON.stringify({token:'server.token',expiresIn:3600})));
+    vi.stubGlobal('fetch',fetchMock);const {app,db}=makeApp({env});
+    try {const {agent}=await signup(app,'clan_force');
+      await agent.post('/api/clan/token').send({});
+      const response=await agent.post('/api/clan/token').send({forceRefresh:true});
+      expect(fetchMock).toHaveBeenCalledTimes(2);expect(response.body.expiresIn).toBe(3600);expect(response.body.expiresAt).toBeGreaterThan(Date.now());
+      expect(fetchMock.mock.calls[1][1].cache).toBe('no-store');
+      expect(response.text).not.toContain(key);
+    }finally{db.close();}
+  });
+  it('uses only database identity, isolates players, and returns only token and expiry metadata', async () => {
     const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({
       token: 'test.player.token', expiresIn: 3600, apiKey: key, internal: 'private',
     })));
@@ -45,7 +56,7 @@ describe('Clan player token bridge (mock Platform)', () => {
           .set('X-Player-Id', 'forged').set('X-API-Key', 'forged')
           .send({ externalPlayerId: 'forged', displayName: 'forged', userId: 'forged', gameId: 'other' });
         expect(res.status).toBe(200);
-        expect(res.body).toEqual({ token: 'test.player.token' });
+        expect(res.body).toEqual({ token: 'test.player.token', expiresIn: 3600, expiresAt: expect.any(Number) });
         expect(res.headers['cache-control']).toBe('no-store');
         expect(JSON.stringify({ body: res.body, headers: res.headers })).not.toContain(key);
         const [url, options] = fetchMock.mock.calls.at(-1)!;
@@ -153,3 +164,5 @@ describe('Clan player token bridge (mock Platform)', () => {
     } finally { db.close(); }
   });
 });
+
+

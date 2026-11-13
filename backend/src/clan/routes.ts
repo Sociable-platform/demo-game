@@ -25,12 +25,14 @@ export function createClanRouter(config: Config, requireAuth: RequestHandler) {
     }
 
     // Deadline covers both response headers and the JSON body. Never follow a redirect with a key.
+    const issuedAfter = Date.now();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {
       const upstream = await fetch(endpoint, {
         method: 'POST',
         redirect: 'error',
+        cache: 'no-store',
         signal: controller.signal,
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-API-Key': config.clanGameApiKey },
         body: JSON.stringify({ externalPlayerId: req.auth!.userId, displayName: req.auth!.username }),
@@ -46,7 +48,8 @@ export function createClanRouter(config: Config, requireAuth: RequestHandler) {
         || typeof expiresIn !== 'number' || !Number.isInteger(expiresIn) || expiresIn <= 0) {
         throw upstreamError();
       }
-      res.json({ token });
+      // No server token cache: normal and forced calls both exchange with Platform.
+      res.json({ token, expiresIn, expiresAt: issuedAfter + expiresIn * 1000 });
     } catch {
       // Do not log/forward fetch errors, upstream bodies, headers, or credentials.
       if (controller.signal.aborted) {
@@ -59,3 +62,4 @@ export function createClanRouter(config: Config, requireAuth: RequestHandler) {
   });
   return router;
 }
+

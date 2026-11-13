@@ -14,6 +14,7 @@ function DiscoverPanel({ notify }) {
         gameId: import.meta.env.VITE_GAME_ID,
         platformUrl: import.meta.env.VITE_PLATFORM_URL,
         socialUrl: import.meta.env.VITE_SOCIAL_URL,
+        realtimeUrl: import.meta.env.VITE_REALTIME_URL,
       },
       getPlayerToken: getClanPlayerToken,
       onJoined: () => notify('success', 'You joined the clan!'),

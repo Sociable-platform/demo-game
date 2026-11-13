@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { getClanPlayerToken } from './api.js';
+import { getClanPlayerToken, clearClanPlayerToken, api } from './api.js';
 import { init } from 'clan-sdk';
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {clearClanPlayerToken();vi.unstubAllGlobals();});
 
 it('requests a Clan token on demand through the existing session', async () => {
   const fetchMock = vi.fn(async () => new Response(JSON.stringify({ token: 'player.token' })));
@@ -28,4 +28,14 @@ it('leaves malformed-token validation to the SDK before any Social request', asy
   await expect(sdk.listClans()).rejects.toThrow('getPlayerToken');
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(fetchMock.mock.calls[0][0]).toBe('/api/clan/token');
+});
+
+it('reuses browser memory token but forces a new exchange with explicit forceRefresh',async()=>{
+ const mock=vi.fn(async()=>new Response(JSON.stringify({token:'cached',expiresIn:3600})));vi.stubGlobal('fetch',mock);
+ await Promise.all([getClanPlayerToken(),getClanPlayerToken()]);await getClanPlayerToken();expect(mock).toHaveBeenCalledTimes(1);
+ await getClanPlayerToken({forceRefresh:true});expect(mock).toHaveBeenCalledTimes(2);expect(JSON.parse(mock.mock.calls[1][1].body)).toEqual({forceRefresh:true});
+});
+it('logout blocks acquisition during transition and clears any cached token',async()=>{
+ let finish;vi.stubGlobal('fetch',vi.fn(async url=>url==='/api/auth/logout'?new Promise(resolve=>finish=()=>resolve(new Response('{}'))):new Response(JSON.stringify({token:'session',expiresIn:3600}))));
+ await getClanPlayerToken();const logout=api.logout();await expect(getClanPlayerToken()).rejects.toMatchObject({name:'AbortError'});finish();await logout;await getClanPlayerToken();expect(fetch.mock.calls.filter(([url])=>url==='/api/clan/token')).toHaveLength(2);
 });

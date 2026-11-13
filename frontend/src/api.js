@@ -1,3 +1,4 @@
+import {createPlayerTokenCache} from './community/playerToken.js';
 // Thin client for the Harvest Village API. Sessions live in an HttpOnly cookie that the browser sends
 // automatically. Clan player tokens are returned on demand and never persisted here.
 
@@ -41,9 +42,9 @@ async function request(method, path, body) {
 
 export const api = {
   config: () => request('GET', '/config'),
-  register: (username, password) => request('POST', '/auth/register', { username, password }),
-  login: (username, password) => request('POST', '/auth/login', { username, password }),
-  logout: () => request('POST', '/auth/logout', {}),
+  register: (username, password) => sessionRequest('/auth/register', { username, password }),
+  login: (username, password) => sessionRequest('/auth/login', { username, password }),
+  logout: () => sessionRequest('/auth/logout', {}),
   me: () => request('GET', '/auth/me'),
   state: () => request('GET', '/game/state'),
   buy: (cropId, quantity) => request('POST', '/game/shop/buy', { cropId, quantity }),
@@ -53,8 +54,15 @@ export const api = {
   devDemoAccounts: (reset = false) => request('POST', '/dev/demo-accounts', { reset }),
 };
 
-// The SDK calls this on demand and validates the returned token; no storage or logging.
-export async function getClanPlayerToken() {
-  const data = await request('POST', '/clan/token', {});
-  return data?.token;
+const clanTokens = createPlayerTokenCache(({forceRefresh}) => request('POST', '/clan/token', forceRefresh ? {forceRefresh:true} : {}));
+let sessionTransitions = 0;
+export const getClanPlayerToken = options => sessionTransitions ? Promise.reject(new DOMException('Player session is changing.', 'AbortError')) : clanTokens.get(options);
+export const clearClanPlayerToken = () => clanTokens.clear();
+export const onClanPlayerSessionChange = listener => clanTokens.subscribe(listener);
+async function sessionRequest(path, body) {
+  sessionTransitions++;
+  clearClanPlayerToken();
+  try { return await request('POST', path, body); }
+  finally { sessionTransitions--; clearClanPlayerToken(); }
 }
+
