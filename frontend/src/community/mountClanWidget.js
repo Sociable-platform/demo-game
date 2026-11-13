@@ -1,9 +1,12 @@
-import { init } from 'clan-sdk';
-import {onClanPlayerSessionChange} from '../api.js';
+import { onClanPlayerSessionChange } from '../api.js';
+import { loadClanSdk } from './loadClanSdk.js';
 
-export function mountClanWidget({ container, settings, getPlayerToken, onJoined, onReady, onError }) {
+// Mounts the Clan experience into `container`. Returns a synchronous dispose function; anything that
+// settles after dispose (SDK script load, widget readiness, join events) is ignored.
+export function mountClanWidget({ container, settings, getPlayerToken, onJoined, onReady, onError, loadSdk = loadClanSdk }) {
   let active = true, widget, sdk, unsubscribe;
   const joined = () => { if (active) onJoined(); };
+  const failed = () => { if (active) onError(); };
   function dispose() {
     if (!active) return;
     active = false;
@@ -13,11 +16,12 @@ export function mountClanWidget({ container, settings, getPlayerToken, onJoined,
     sdk?.resetPlayerSession?.();
   }
   container.addEventListener('clan-sdk:joined', joined);
-  try {
-    sdk = init({ ...settings, getPlayerToken });
-    unsubscribe = onClanPlayerSessionChange(dispose);
+  unsubscribe = onClanPlayerSessionChange(dispose);
+  Promise.resolve().then(loadSdk).then(ClanSDK => {
+    if (!active) return;
+    sdk = ClanSDK.init({ ...settings, getPlayerToken });
     widget = sdk.mountExperience({ container });
-    widget.ready.then(() => { if (active) onReady(); }, () => { if (active) onError(); });
-  } catch { if(active)onError(); }
+    widget.ready.then(() => { if (active) onReady(); }, failed);
+  }).catch(failed);
   return dispose;
 }

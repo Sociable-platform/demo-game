@@ -34,6 +34,7 @@ export function createApp({ config, db, now = Date.now }: AppDeps): Express {
   app.use(helmet({ contentSecurityPolicy: { directives: {
     'upgrade-insecure-requests': null,
     'connect-src': ["'self'", ...(config.clanSocialOrigin ? [config.clanSocialOrigin] : [])],
+    'script-src': ["'self'", ...(config.clanSdkOrigin ? [config.clanSdkOrigin] : [])],
   } } }));
   app.use('/api', (_req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');

@@ -179,11 +179,14 @@ The frontend exports `getClanPlayerToken()` from `frontend/src/api.js`. It calls
 `credentials: 'same-origin'` and returns the token string. Call it on demand or later supply it as an SDK
 callback; it is not automatically called on render and does not persist/log tokens.
 
-After login, click **Open clans**. The game initializes the SDK with public `VITE_GAME_ID`,
-`VITE_PLATFORM_URL`, and `VITE_SOCIAL_URL`, plus the existing `getClanPlayerToken` callback. It mounts with
-`sdk.mountExperience({ container })` and handles `widget.ready`; the SDK owns published-config fetching,
-caching, fallback, default response adapters, and navigation. Closing/logout/account changes destroy the widget,
-and stale readiness results cannot update a newer instance. No game-owned Social bootstrap/screens are added.
+After login, click **Open clans**. The first time the panel opens, the game loads the hosted SDK bundle from
+`VITE_CLAN_SDK_URL` with a plain `<script>` tag and reads `window.ClanSDK` (`frontend/src/community/loadClanSdk.js`).
+Nothing from the SDK is bundled into the game, and no path outside this repository is needed. The game initializes
+the SDK with public `VITE_GAME_ID`, `VITE_PLATFORM_URL`, `VITE_SOCIAL_URL` and `VITE_REALTIME_URL`, plus the existing
+`getClanPlayerToken` callback, then mounts with `sdk.mountExperience({ container })` and handles `widget.ready`.
+The SDK owns published-config fetching, caching, fallback, default response adapters, and navigation. If the script
+fails to load, only the clan panel shows an error; opening it again retries. Closing/logout/account changes destroy
+the widget, and stale load or readiness results cannot update a newer instance.
 
 Set these public values in the root `.env` and publish that game's configuration in Platform:
 
@@ -191,13 +194,18 @@ Set these public values in the root `.env` and publish that game's configuration
 VITE_GAME_ID=<the-game-id-associated-with-CLAN_GAME_API_KEY>
 VITE_PLATFORM_URL=http://localhost:8081
 VITE_SOCIAL_URL=http://localhost:8082
+VITE_CLAN_SDK_URL=https://sdk.130-61-158-79.sslip.io/v1/clan-sdk.js
 ```
 
-The SDK used by this game must implement the Platform loader and `widget.ready`. Set tooling-only
-`CLAN_SDK_ENTRY` to its `src/index.js` when using a separate checkout. The older nested SDK copy lacks that API;
-this workspace now resolves the newer Desktop checkout without editing either SDK. Restart Vite after changing
-`.env` or the SDK path, and rebuild production assets. The game no longer imports its old local JSON and makes
-no `/__dev__/chat-config` request. The edited JSON file is preserved as an unused reference.
+Until the SDK host is deployed, build and serve the bundle locally and point `VITE_CLAN_SDK_URL` at it:
+
+```sh
+cd ../clan-sdk && npm run build && python3 -m http.server 8090 -d dist
+# VITE_CLAN_SDK_URL=http://localhost:8090/clan-sdk.js
+```
+
+Restart Vite after changing `.env`, and rebuild production assets. In production the backend adds the origin of
+`VITE_CLAN_SDK_URL` to the page CSP `script-src`.
 
 No developer token or secret API key belongs in a `VITE_*` variable. The game API key stays backend-only.
 Platform and Social CORS must allow the game's origin. The unchanged backend still reads

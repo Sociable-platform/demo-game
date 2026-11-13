@@ -16,6 +16,18 @@ describe('Clan player token bridge (mock Platform)', () => {
       expect(JSON.stringify({ body: res.body, headers: res.headers })).not.toContain(key);
     } finally { db.close(); }
   });
+  it('allows the hosted SDK script origin, and only that, in the production page CSP', async () => {
+    const { app, db } = makeApp({ env: { ...env, NODE_ENV: 'production', VITE_CLAN_SDK_URL: 'https://sdk.example.test/v1/clan-sdk.js' } });
+    try {
+      const res = await request(app).get('/api/config');
+      expect(res.headers['content-security-policy'].split(';')).toContain("script-src 'self' https://sdk.example.test");
+    } finally { db.close(); }
+    const unset = makeApp({ env: { ...env, NODE_ENV: 'production' } });
+    try {
+      const res = await request(unset.app).get('/api/config');
+      expect(res.headers['content-security-policy'].split(';')).toContain("script-src 'self'");
+    } finally { unset.db.close(); }
+  });
   it('requires the existing game session, including after logout', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
