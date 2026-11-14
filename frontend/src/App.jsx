@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, clearClanPlayerToken } from './api.js';
+import { api } from './api.js';
 import AuthScreen from './components/AuthScreen.jsx';
 import GameScreen from './components/GameScreen.jsx';
 import CommunityClans from './components/CommunityClans.jsx';
@@ -42,7 +42,6 @@ export default function App() {
   }, [push]);
 
   const sessionExpired = useCallback(() => {
-    clearClanPlayerToken();
     setUser(null);
     setPhase('anon');
     push('error', 'Your session has ended. Please log in again.');

@@ -1,83 +1,68 @@
-import {clearClanPlayerToken} from '../api.js';
 import { afterEach, expect, it, vi } from 'vitest';
-const { init } = vi.hoisted(() => ({ init: vi.fn() }));
-vi.mock('clan-sdk', () => ({ init }));
 import { mountClanWidget } from './mountClanWidget.js';
 
-const deferred = () => {
-  let resolve, reject;
-  const promise = new Promise((a, b) => { resolve = a; reject = b; });
-  return { promise, resolve, reject };
-};
-const settings = { gameId: 'game-1', platformUrl: 'https://platform.test', socialUrl: 'https://social.test', realtimeUrl: 'https://realtime.test' };
-const callbacks = () => ({ getPlayerToken: vi.fn(), onJoined: vi.fn(), onReady: vi.fn(), onError: vi.fn() });
-afterEach(() => vi.resetAllMocks());
+afterEach(() => vi.unstubAllGlobals());
 
-it('passes connection settings including Realtime and token callback, mounts without config, and handles ready', async () => {
-  const pending = deferred();
-  const widget = { ready: pending.promise, destroy: vi.fn() };
-  const mountExperience = vi.fn(() => widget);
-  init.mockReturnValue({ mountExperience });
+function fixture() {
   const container = new EventTarget();
-  const hooks = callbacks();
-  const cleanup = mountClanWidget({ container, settings, ...hooks });
-  expect(init).toHaveBeenCalledWith({ ...settings, getPlayerToken: hooks.getPlayerToken });
-  expect(mountExperience).toHaveBeenCalledWith({ container });
-  expect(hooks.onReady).not.toHaveBeenCalled();
-  pending.resolve(); await pending.promise;
-  expect(hooks.onReady).toHaveBeenCalledOnce();
-  container.dispatchEvent(new Event('clan-sdk:joined'));
-  expect(hooks.onJoined).toHaveBeenCalledOnce();
-  cleanup(); cleanup();
-  container.dispatchEvent(new Event('clan-sdk:joined'));
-  expect(hooks.onJoined).toHaveBeenCalledOnce();
+  const widget = { ready: Promise.resolve(), destroy: vi.fn() };
+  const sdk = { mountExperience: vi.fn(() => widget), resetPlayerSession: vi.fn() };
+  const init = vi.fn(() => sdk);
+  const options = {
+    container,
+    settings: { gameId: 'game-1', platformUrl: 'https://platform.test', socialUrl: 'https://social.test', realtimeUrl: 'https://realtime.test' },
+    getPlayerToken: vi.fn(),
+    onJoined: vi.fn(),
+    onReady: vi.fn(),
+    onError: vi.fn(),
+  };
+  vi.stubGlobal('window', { ClanSDK: { init } });
+  return { options, init, sdk, widget };
+}
+
+it('mounts the script global with public settings and the game token callback', async () => {
+  const { options, init, sdk } = fixture();
+  const dispose = mountClanWidget(options);
+  expect(init).toHaveBeenCalledWith({ ...options.settings, getPlayerToken: options.getPlayerToken });
+  expect(sdk.mountExperience).toHaveBeenCalledWith({ container: options.container });
+  await Promise.resolve();
+  expect(options.onReady).toHaveBeenCalledOnce();
+  options.container.dispatchEvent(new Event('clan-sdk:joined'));
+  expect(options.onJoined).toHaveBeenCalledOnce();
+  dispose();
+});
+
+it('reports a missing or invalid script global without throwing into the game', () => {
+  for (const value of [undefined, {}]) {
+    const { options } = fixture();
+    vi.stubGlobal('window', { ClanSDK: value });
+    expect(() => mountClanWidget(options)()).not.toThrow();
+    expect(options.onError).toHaveBeenCalledOnce();
+    expect(options.onReady).not.toHaveBeenCalled();
+  }
+});
+
+it('reports widget readiness failure in the panel', async () => {
+  const { options, widget } = fixture();
+  widget.ready = Promise.reject(new Error('Config unavailable'));
+  const dispose = mountClanWidget(options);
+  await Promise.resolve();
+  expect(options.onError).toHaveBeenCalledOnce();
+  dispose();
+});
+
+it('destroys once and ignores stale readiness and joined events after unmount', async () => {
+  const { options, sdk, widget } = fixture();
+  let resolve;
+  widget.ready = new Promise(done => { resolve = done; });
+  const dispose = mountClanWidget(options);
+  dispose();
+  dispose();
+  resolve();
+  await Promise.resolve();
+  options.container.dispatchEvent(new Event('clan-sdk:joined'));
   expect(widget.destroy).toHaveBeenCalledOnce();
-});
-
-it.each(['initialization', 'mount', 'ready'])('contains %s errors without throwing to gameplay', async stage => {
-  const pending = deferred();
-  const widget = { ready: pending.promise, destroy: vi.fn() };
-  const mountExperience = vi.fn(() => { if (stage === 'mount') throw new Error('private details'); return widget; });
-  init.mockImplementation(() => { if (stage === 'initialization') throw new Error('private details'); return { mountExperience }; });
-  const hooks = callbacks();
-  const cleanup = mountClanWidget({ container: new EventTarget(), settings, ...hooks });
-  if (stage === 'ready') { pending.reject(new Error('private details')); await pending.promise.catch(() => {}); }
-  expect(hooks.onError).toHaveBeenCalledWith();
-  expect(hooks.onError).toHaveBeenCalledOnce();
-  expect(hooks.onReady).not.toHaveBeenCalled();
-  cleanup();
-});
-
-it.each(['resolve', 'reject'])('ignores stale %s after StrictMode cleanup and remount', async settle => {
-  const pending = [deferred(), deferred()];
-  const container = new EventTarget();
-  let count = 0, activeMounts = 0;
-  const widgets = [];
-  init.mockReturnValue({ mountExperience: () => {
-    expect(activeMounts).toBe(0);
-    activeMounts++;
-    const widget = { ready: pending[count++].promise, destroy: vi.fn(() => activeMounts--) };
-    widgets.push(widget); return widget;
-  } });
-  const oldHooks = callbacks(), newHooks = callbacks();
-  const firstCleanup = mountClanWidget({ container, settings, ...oldHooks });
-  firstCleanup();
-  const secondCleanup = mountClanWidget({ container, settings, ...newHooks });
-  pending[0][settle](new Error('stale')); await pending[0].promise.catch(() => {});
-  expect(oldHooks.onError).not.toHaveBeenCalled();
-  expect(oldHooks.onReady).not.toHaveBeenCalled();
-  pending[1].resolve(); await pending[1].promise;
-  container.dispatchEvent(new Event('clan-sdk:joined'));
-  expect(oldHooks.onJoined).not.toHaveBeenCalled();
-  expect(newHooks.onJoined).toHaveBeenCalledOnce();
-  expect(newHooks.onReady).toHaveBeenCalledOnce();
-  secondCleanup();
-  expect(activeMounts).toBe(0);
-});
-
-it('auth changes destroy the widget before resetting the SDK and suppress late callbacks',async()=>{
- const pending=deferred(),order=[];const widget={ready:pending.promise,destroy:vi.fn(()=>order.push('destroy'))};
- const resetPlayerSession=vi.fn(()=>order.push('reset'));init.mockReturnValue({mountExperience:()=>widget,resetPlayerSession});
- const hooks=callbacks(),container=new EventTarget();const cleanup=mountClanWidget({container,settings,...hooks});clearClanPlayerToken();
- expect(order).toEqual(['destroy','reset']);pending.resolve();await pending.promise;container.dispatchEvent(new Event('clan-sdk:joined'));expect(hooks.onReady).not.toHaveBeenCalled();expect(hooks.onJoined).not.toHaveBeenCalled();cleanup();clearClanPlayerToken();expect(widget.destroy).toHaveBeenCalledTimes(1);
+  expect(sdk.resetPlayerSession).toHaveBeenCalledOnce();
+  expect(options.onReady).not.toHaveBeenCalled();
+  expect(options.onJoined).not.toHaveBeenCalled();
 });

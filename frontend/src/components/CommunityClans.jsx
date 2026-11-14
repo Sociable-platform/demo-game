@@ -5,24 +5,19 @@ import { mountClanWidget } from '../community/mountClanWidget.js';
 function DiscoverPanel({ notify }) {
   const container = useRef(null);
   const [status, setStatus] = useState('loading');
-
-  useEffect(() => {
-    setStatus('loading');
-    return mountClanWidget({
-      container: container.current,
-      settings: {
-        gameId: import.meta.env.VITE_GAME_ID,
-        platformUrl: import.meta.env.VITE_PLATFORM_URL,
-        socialUrl: import.meta.env.VITE_SOCIAL_URL,
-        realtimeUrl: import.meta.env.VITE_REALTIME_URL,
-      },
-      getPlayerToken: getClanPlayerToken,
-      onJoined: () => notify('success', 'You joined the clan!'),
-      onReady: () => setStatus('ready'),
-      onError: () => setStatus('error'),
-    });
-  }, [notify]);
-
+  useEffect(() => mountClanWidget({
+    container: container.current,
+    settings: {
+      gameId: import.meta.env.VITE_GAME_ID,
+      platformUrl: import.meta.env.VITE_PLATFORM_URL,
+      socialUrl: import.meta.env.VITE_SOCIAL_URL,
+      realtimeUrl: import.meta.env.VITE_REALTIME_URL,
+    },
+    getPlayerToken: getClanPlayerToken,
+    onJoined: () => notify('success', 'You joined the clan!'),
+    onReady: () => setStatus('ready'),
+    onError: () => setStatus('error'),
+  }), [notify]);
   return <>
     {status === 'loading' && <p role="status">Opening clans…</p>}
     {status === 'error' && <p role="alert">Clans could not be opened. Please try again later.</p>}
