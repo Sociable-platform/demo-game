@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1
 ARG VITE_CLAN_SDK_URL=http://127.0.0.1:18080/v1/clan-sdk.js
 
-FROM node:22-alpine AS build
+# The compiled TypeScript, browser assets and production npm dependencies are
+# platform independent; node:sqlite comes from each target's Node runtime.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
@@ -24,7 +26,8 @@ RUN : "${VITE_GAME_ID:?VITE_GAME_ID build argument is required}" \
     && : "${VITE_SOCIAL_URL:?VITE_SOCIAL_URL build argument is required}" \
     && : "${VITE_REALTIME_URL:?VITE_REALTIME_URL build argument is required}" \
     && : "${VITE_CLAN_SDK_URL:?VITE_CLAN_SDK_URL must not be empty}" \
-    && npm run build && npm prune --omit=dev
+    && npm run build && npm prune --omit=dev \
+    && mkdir -p /app/data && chown node:node /app/data
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
@@ -48,7 +51,7 @@ COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/scripts/start-prod.mjs ./backend/scripts/start-prod.mjs
 COPY --from=build /app/frontend/package.json ./frontend/
 COPY --from=build /app/frontend/dist ./frontend/dist
-RUN mkdir -p /app/data && chown node:node /app/data
+COPY --from=build --chown=node:node /app/data/ /app/data/
 USER node
 EXPOSE 3001
 CMD ["npm", "start"]

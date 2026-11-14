@@ -2,7 +2,6 @@
 **/dist
 **/.env
 **/.env.*
-!**/.env.example
 **/.git
 **/.npmrc
 backend/data

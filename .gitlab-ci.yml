@@ -1,0 +1,57 @@
+stages:
+  - test
+  - build
+
+test:
+  stage: test
+  image: node:22-alpine
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+  script:
+    - npm ci
+    - npm test
+    - npm run e2e
+
+# Team Docker 27 / DinD / TLS-context convention. The public SDK is loaded by
+# the browser; no npm SDK dependency or Platform API key is used in the build.
+images:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+    PLATFORMS: linux/amd64,linux/arm64
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - docker context create tls-environment
+    - docker buildx create --use --driver docker-container tls-environment
+  script:
+    - |
+      set -eu
+      : "${VITE_GAME_ID:?Set the public VITE_GAME_ID CI variable}"
+      : "${VITE_PLATFORM_URL:?Set the public VITE_PLATFORM_URL CI variable}"
+      : "${VITE_SOCIAL_URL:?Set the public VITE_SOCIAL_URL CI variable}"
+      : "${VITE_REALTIME_URL:?Set the public VITE_REALTIME_URL CI variable}"
+      : "${VITE_CLAN_SDK_URL:?Set the public VITE_CLAN_SDK_URL CI variable}"
+      set -- --tag "$CI_REGISTRY_IMAGE/game:$CI_COMMIT_SHA" \
+        --tag "$CI_REGISTRY_IMAGE/game:$CI_COMMIT_REF_SLUG"
+      if [ "${CI_COMMIT_BRANCH:-}" = "main" ]; then
+        set -- "$@" --tag "$CI_REGISTRY_IMAGE/game:latest"
+      fi
+      docker buildx build --platform "$PLATFORMS" "$@" \
+        --build-arg VITE_GAME_ID \
+        --build-arg VITE_PLATFORM_URL \
+        --build-arg VITE_SOCIAL_URL \
+        --build-arg VITE_REALTIME_URL \
+        --build-arg VITE_CLAN_SDK_URL \
+        --push .
+      docker buildx imagetools inspect "$CI_REGISTRY_IMAGE/game:$CI_COMMIT_SHA"
