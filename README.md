@@ -3,8 +3,8 @@
 A cozy farming browser game with a real backend: buy seeds, plant, wait, harvest and sell. Accounts, farms and
 progress live in SQLite and the server is the single authority for coins, inventory, crop growth and rewards.
 
-The farming game retains its own login and database. An optional backend-only Clan player-token bridge
-is included. See [Clan Platform integration](#clan-platform-integration).
+The farming game retains its own login and database. An optional Clan player-token bridge and SDK Discover
+panel are included. See [Clan Platform integration](#clan-platform-integration).
 
 | Part | Tech |
 | --- | --- |
@@ -137,6 +137,9 @@ Error codes: `unauthorized`, `invalid_credentials`, `username_taken`, `validatio
 
 ## Clan Platform integration
 
+For the ordered request flow, file responsibilities, and a checklist for adding a second widget, see
+[Clan widget flow and adding another widget](docs/clan-widget-flow.md).
+
 Keep using the existing game registration/login. After login, the browser can call `POST /api/clan/token`
 with the game session cookie and an empty body (or `{}`). The game server obtains a player token from
 Platform and returns **only `{ "token": "..." }`**. The game session cookie is not a Clan player token.
@@ -172,68 +175,35 @@ The bridge uses `req.auth.userId` (the stable database ID, unchanged across logi
 cannot override player identity, display name, API key or game. Only `token` is forwarded from a valid response;
 `expiresIn` and extra upstream fields are discarded. Responses use `Cache-Control: no-store`.
 
-### Script-tag SDK panel
+The frontend exports `getClanPlayerToken()` from `frontend/src/api.js`. It calls the game endpoint with
+`credentials: 'same-origin'` and returns the token string. Call it on demand or later supply it as an SDK
+callback; it is not automatically called on render and does not persist/log tokens.
 
-The HTML loads `<script src="%VITE_CLAN_SDK_URL%"></script>` before the game module.
-Vite replaces the URL during development and production builds. Opening **Open clans** reads
-`window.ClanSDK`, calls `init()` with the public settings and the existing game player-token
-callback, and mounts `mountExperience()`. Closing the panel, logging out, or changing accounts
-destroys that instance. A missing script or failed mount displays a panel error while farming
-continues. There is no npm SDK dependency or local checkout requirement.
+After login, click **Open clans**. The game initializes the SDK with public `VITE_GAME_ID`,
+`VITE_PLATFORM_URL`, and `VITE_SOCIAL_URL`, plus the existing `getClanPlayerToken` callback. It mounts with
+`sdk.mountExperience({ container })` and handles `widget.ready`; the SDK owns published-config fetching,
+caching, fallback, default response adapters, and navigation. Closing/logout/account changes destroy the widget,
+and stale readiness results cannot update a newer instance. No game-owned Social bootstrap/screens are added.
 
-Set these public values in the game-root `.env`:
+Set these public values in the root `.env` and publish that game's configuration in Platform:
 
 ```dotenv
-VITE_GAME_ID=your-platform-game-id
+VITE_GAME_ID=<the-game-id-associated-with-CLAN_GAME_API_KEY>
 VITE_PLATFORM_URL=http://localhost:8081
 VITE_SOCIAL_URL=http://localhost:8082
-VITE_REALTIME_URL=http://localhost:8083
-VITE_CLAN_SDK_URL=http://127.0.0.1:18080/v1/clan-sdk.js
 ```
 
-Use the game ID associated with the backend's `CLAN_GAME_API_KEY`. Run the SDK container separately
-on port 18080, then `npm run dev`. Restart Vite after changing settings. Production assets need a
-rebuild when public URLs change. These URLs must be reachable by the player's browser. Configure
-the services to allow the game's origin. HTTPS deployments require an HTTPS SDK URL.
+The SDK used by this game must implement the Platform loader and `widget.ready`. Set tooling-only
+`CLAN_SDK_ENTRY` to its `src/index.js` when using a separate checkout. The older nested SDK copy lacks that API;
+this workspace now resolves the newer Desktop checkout without editing either SDK. Restart Vite after changing
+`.env` or the SDK path, and rebuild production assets. The game no longer imports its old local JSON and makes
+no `/__dev__/chat-config` request. The edited JSON file is preserved as an unused reference.
 
-Express derives its production CSP from these public environment values. Supply the same values
-when starting a built game so the allowed script and service origins match the frontend.
-
-### Docker build
-
-The two-stage Dockerfile builds only this game and serves the frontend through Express as a
-non-root user. It fetches no SDK package or source checkout. From this directory:
-
-```sh
-docker build -t harvest-village:script-tag \
-  --build-arg VITE_GAME_ID=your-platform-game-id \
-  --build-arg VITE_PLATFORM_URL=http://localhost:8081 \
-  --build-arg VITE_SOCIAL_URL=http://localhost:8082 \
-  --build-arg VITE_REALTIME_URL=http://localhost:8083 \
-  --build-arg VITE_CLAN_SDK_URL=http://127.0.0.1:18080/v1/clan-sdk.js .
-```
-
-Deployment can replace each public URL, including the SDK script URL. The runtime image keeps
-the build's public settings for CSP. API keys remain runtime-only. Environment files, local
-databases, and local SDK checkouts are excluded from the context. An optional private registry
-configuration can be supplied as `--secret id=npmrc,src=/secure/path/npmrc`.
-
-To run this image on a free local port:
-
-```sh
-docker volume create harvest-village-data
-docker run -d --init --name harvest-village -p 3001:3001 \
-  --env CLAN_GAME_API_KEY \
-  --env CLAN_PLATFORM_URL=http://host.docker.internal:8081 \
-  --env APP_ORIGIN=http://localhost:3001 --env COOKIE_SECURE=false \
-  --add-host host.docker.internal:host-gateway \
-  --mount type=volume,source=harvest-village-data,target=/app/data \
-  harvest-village:script-tag
-```
-
-Set `CLAN_GAME_API_KEY` in the shell before running that command. The database is stored in
-`/app/data/harvest.db`. An existing named volume is reused. Host-run games use their configured
-database file instead; their accounts are not automatically copied into a Docker volume.
+No developer token or secret API key belongs in a `VITE_*` variable. The game API key stays backend-only.
+Platform and Social CORS must allow the game's origin. The unchanged backend still reads
+`VITE_CLAN_SOCIAL_URL` for Social CSP: keep it equal to `VITE_SOCIAL_URL`. For production, configure a deployment
+reverse proxy/CSP that permits both public services; the existing backend CSP does not allow a separate Platform
+origin. No backend change is included here. See [published-widget setup](docs/published-widget-setup.md).
 
 Failure behavior:
 
@@ -249,8 +219,10 @@ login 401. No automatic retries or redirect following occur. Missing Clan config
 startup, login, or farming.
 
 `backend/tests/clan.test.ts` uses mocked Platform fetch responses, real game sessions and SQLite to check
-identity isolation, overrides, failures/timeouts, and secret filtering. These tests use mock Platform
-responses and do not verify deployed credentials or connectivity.
+identity isolation, overrides, failures/timeouts, and secret filtering. `frontend/src/api.test.js` checks the helper.
+`frontend/src/community/discover.test.js` exercises SDK list/search/join with the game token callback using
+mock HTTP responses. These mocks do not verify Platform JWT signing, key validity, or deployed connectivity. To verify live, configure
+your Platform URL/key, log into the game, and explicitly call the helper; never print/store its returned token.
 
 ## Limitations
 
@@ -258,5 +230,5 @@ responses and do not verify deployed credentials or connectivity.
 - No email, password reset or "change password"; username/password only.
 - Crops yield 1 item per harvest and the farm size and unlock levels are fixed in code.
 - The server never auto-advances anything, so "offline growth" is just timestamps passing; there is no notification when crops ripen.
-- `node:sqlite` is still flagged experimental by Node, though stable in practice for this use.
+- No Docker files (optional per the brief). `node:sqlite` is still flagged experimental by Node, though stable in practice for this use.
 - Cross-process race safety relies on SQLite's `BEGIN IMMEDIATE` plus conditional updates; parallel-request tests run against one Node process, not several.

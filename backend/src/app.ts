@@ -33,8 +33,7 @@ export function createApp({ config, db, now = Date.now }: AppDeps): Express {
   // Behind real TLS every request is already https.
   app.use(helmet({ contentSecurityPolicy: { directives: {
     'upgrade-insecure-requests': null,
-    'script-src': ["'self'", ...(config.clanSdkOrigin ? [config.clanSdkOrigin] : [])],
-    'connect-src': ["'self'", ...config.clanConnectOrigins],
+    'connect-src': ["'self'", ...(config.clanSocialOrigin ? [config.clanSocialOrigin] : [])],
   } } }));
   app.use('/api', (_req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');

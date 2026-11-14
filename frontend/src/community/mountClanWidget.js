@@ -1,29 +1,23 @@
-// The HTML script tag loads the SDK before the game module starts.
+import { init } from 'clan-sdk';
+import {onClanPlayerSessionChange} from '../api.js';
+
 export function mountClanWidget({ container, settings, getPlayerToken, onJoined, onReady, onError }) {
-  let active = true;
-  let sdk;
-  let widget;
+  let active = true, widget, sdk, unsubscribe;
   const joined = () => { if (active) onJoined(); };
-  const dispose = () => {
+  function dispose() {
     if (!active) return;
     active = false;
+    unsubscribe?.();
     container.removeEventListener('clan-sdk:joined', joined);
     widget?.destroy();
     sdk?.resetPlayerSession?.();
-  };
+  }
   container.addEventListener('clan-sdk:joined', joined);
   try {
-    const ClanSDK = window.ClanSDK;
-    if (typeof ClanSDK?.init !== 'function') throw new Error('Clan SDK script is unavailable.');
-    sdk = ClanSDK.init({ ...settings, getPlayerToken });
+    sdk = init({ ...settings, getPlayerToken });
+    unsubscribe = onClanPlayerSessionChange(dispose);
     widget = sdk.mountExperience({ container });
-    widget.ready.then(
-      () => { if (active) onReady(); },
-      () => { if (active) onError(); },
-    );
-  } catch {
-    dispose();
-    onError();
-  }
+    widget.ready.then(() => { if (active) onReady(); }, () => { if (active) onError(); });
+  } catch { if(active)onError(); }
   return dispose;
 }

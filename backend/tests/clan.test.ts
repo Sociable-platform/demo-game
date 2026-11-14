@@ -7,26 +7,11 @@ const env = { CLAN_PLATFORM_URL: 'https://platform.example.test/', CLAN_GAME_API
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Clan player token bridge (mock Platform)', () => {
-  it('permits the configured script and public HTTP/WebSocket services in production', async () => {
-    const { app, db } = makeApp({ env: { ...env, NODE_ENV: 'production',
-      VITE_CLAN_SDK_URL: 'http://127.0.0.1:18080/v1/clan-sdk.js',
-      VITE_PLATFORM_URL: 'https://public-platform.test',
-      VITE_SOCIAL_URL: 'https://social.test',
-      VITE_REALTIME_URL: 'https://realtime.test',
-    } });
+  it('allows only the configured public Social origin in the production page CSP', async () => {
+    const { app, db } = makeApp({ env: { ...env, NODE_ENV: 'production', VITE_CLAN_SOCIAL_URL: 'https://social.example.test/prefix' } });
     try {
       const res = await request(app).get('/api/config');
-      const csp = res.headers['content-security-policy'].split(';');
-      expect(csp).toContain("script-src 'self' http://127.0.0.1:18080");
-      expect(csp).toContain("connect-src 'self' https://public-platform.test https://social.test https://realtime.test wss://realtime.test");
-      expect(res.headers['content-security-policy']).not.toContain(env.CLAN_PLATFORM_URL);
-    } finally { db.close(); }
-  });
-  it('keeps browser requests same-origin and backend bridge settings private', async () => {
-    const { app, db } = makeApp({ env: { ...env, NODE_ENV: 'production' } });
-    try {
-      const res = await request(app).get('/api/config');
-      expect(res.headers['content-security-policy'].split(';')).toContain("connect-src 'self'");
+      expect(res.headers['content-security-policy'].split(';')).toContain("connect-src 'self' https://social.example.test");
       expect(res.headers['content-security-policy']).not.toContain(env.CLAN_PLATFORM_URL);
       expect(JSON.stringify({ body: res.body, headers: res.headers })).not.toContain(key);
     } finally { db.close(); }
