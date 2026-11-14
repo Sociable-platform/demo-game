@@ -1,0 +1,35 @@
+services:
+  game:
+    image: harvest-village:local
+    build:
+      context: .
+      args:
+        VITE_GAME_ID: ${VITE_GAME_ID:?Set VITE_GAME_ID}
+        VITE_PLATFORM_URL: ${VITE_PLATFORM_URL:?Set VITE_PLATFORM_URL}
+        VITE_SOCIAL_URL: ${VITE_SOCIAL_URL:?Set VITE_SOCIAL_URL}
+        VITE_REALTIME_URL: ${VITE_REALTIME_URL:?Set VITE_REALTIME_URL}
+        VITE_CLAN_SDK_URL: ${VITE_CLAN_SDK_URL:?Set VITE_CLAN_SDK_URL}
+    init: true
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      DB_PATH: /app/data/harvest.db
+      CLAN_PLATFORM_URL: ${CLAN_PLATFORM_URL:-http://host.docker.internal:8081}
+      CLAN_GAME_API_KEY: ${CLAN_GAME_API_KEY:-}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3001,http://127.0.0.1:3001}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - game-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+
+volumes:
+  game-data:
+    name: harvest-village-data

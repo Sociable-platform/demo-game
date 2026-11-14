@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/.git
+**/.npmrc
+backend/data
+clan-sdk
+clan-backend

@@ -8,3 +8,10 @@ backend/data/
 .DS_Store
 
 /clan-sdk/
+
+/clan-backend/
+
+/docs/
+
+.env.local
+.image-check/

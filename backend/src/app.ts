@@ -10,6 +10,7 @@ import { createAuthRouter } from './auth/routes.js';
 import { createGameService } from './game/service.js';
 import { createGameRouter } from './game/routes.js';
 import { createDevRouter } from './dev/routes.js';
+import { createClanRouter } from './clan/routes.js';
 import { AppError, errorHandler, notFoundHandler } from './http/errors.js';
 
 export interface AppDeps {
@@ -30,7 +31,15 @@ export function createApp({ config, db, now = Date.now }: AppDeps): Express {
   app.disable('x-powered-by');
   // upgrade-insecure-requests is disabled so the production build also runs on plain http://localhost.
   // Behind real TLS every request is already https.
-  app.use(helmet({ contentSecurityPolicy: { directives: { 'upgrade-insecure-requests': null } } }));
+  app.use(helmet({ contentSecurityPolicy: { directives: {
+    'upgrade-insecure-requests': null,
+    'script-src': ["'self'", ...(config.clanSdkOrigin ? [config.clanSdkOrigin] : [])],
+    'connect-src': ["'self'", ...config.clanConnectOrigins],
+  } } }));
+  app.use('/api', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.use(express.json({ limit: '10kb' }));
   app.use(cookieParser());
 
@@ -43,10 +52,6 @@ export function createApp({ config, db, now = Date.now }: AppDeps): Express {
     }
     next();
   });
-  app.use('/api', (_req, res, next) => {
-    res.setHeader('Cache-Control', 'no-store');
-    next();
-  });
 
   const game = createGameService(db, now);
   const requireAuth = createRequireAuth(db, config, now);
@@ -55,6 +60,7 @@ export function createApp({ config, db, now = Date.now }: AppDeps): Express {
   app.get('/api/config', (_req, res) => res.json({ devMode: config.enableDevRoutes }));
   app.use('/api/auth', createAuthRouter({ db, config, now, requireAuth, onUserCreated: game.initPlayer }));
   app.use('/api/game', createGameRouter(game, requireAuth));
+  app.use('/api/clan', createClanRouter(config, requireAuth));
   if (config.enableDevRoutes) app.use('/api/dev', createDevRouter(db, now, game.initPlayer));
   app.use('/api', notFoundHandler);
 

@@ -14,6 +14,10 @@ export interface Config {
   trustProxy: boolean;
   rateLimitEnabled: boolean;
   frontendDist: string | null;
+  clanPlatformUrl: string;
+  clanGameApiKey: string;
+  clanSdkOrigin: string | null;
+  clanConnectOrigins: string[];
 }
 
 const backendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -24,6 +28,14 @@ const defaultFrontend = path.resolve(backendRoot, '..', 'frontend', 'dist');
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const nodeEnv = env.NODE_ENV ?? 'development';
   const isProduction = nodeEnv === 'production';
+  const clanSdkOrigin = publicOrigin(env.VITE_CLAN_SDK_URL);
+  const realtimeOrigin = publicOrigin(env.VITE_REALTIME_URL);
+  const clanConnectOrigins = [...new Set([
+    publicOrigin(env.VITE_PLATFORM_URL),
+    publicOrigin(env.VITE_SOCIAL_URL),
+    realtimeOrigin,
+    realtimeOrigin?.replace(/^http/, 'ws'),
+  ].filter((origin): origin is string => Boolean(origin)))];
   // Secure cookies (and the __Host- prefix) are on in production. COOKIE_SECURE=false lets you
   // run the production build over plain http on your own machine (e.g. Safari on localhost).
   const cookieSecure = env.COOKIE_SECURE ? env.COOKIE_SECURE === 'true' : isProduction;
@@ -46,5 +58,20 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trustProxy: env.TRUST_PROXY === 'true',
     rateLimitEnabled: env.RATE_LIMIT !== 'false',
     frontendDist: isProduction ? defaultFrontend : null,
+    clanPlatformUrl: env.CLAN_PLATFORM_URL?.trim() ?? '',
+    clanGameApiKey: env.CLAN_GAME_API_KEY?.trim() ?? '',
+    clanSdkOrigin,
+    clanConnectOrigins,
   };
+}
+
+function publicOrigin(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.hash) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
 }

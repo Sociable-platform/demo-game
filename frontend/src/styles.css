@@ -12,8 +12,6 @@
   --gold: #f6c343;
   --red: #c8473a;
   --radius: 20px;
-  /* Bottom/right space kept free for a future community overlay (see #community-overlay-root). */
-  --community-reserve: 110px;
   font-family: ui-rounded, 'Nunito', 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
   color: var(--ink);
 }
@@ -86,7 +84,9 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
 .dev-tag { justify-self: start; font-size: 0.72rem; background: #3b3b3b; color: #fff; padding: 2px 8px; border-radius: 999px; margin-top: -4px; }
 
 /* ---------- app shell ---------- */
-.app { min-height: 100vh; padding: 12px 14px calc(var(--community-reserve) + 16px); max-width: 1180px; margin: 0 auto; }
+.app { min-height: 100vh; padding: 12px 14px 110px; max-width: 1180px; margin: 0 auto; }
+.community-clans { position: fixed; right: 16px; bottom: 16px; z-index: 50; }
+.community-clan-panel { position: absolute; right: 0; bottom: calc(100% + 10px); width: min(390px, calc(100vw - 32px)); max-height: calc(100dvh - 100px); overflow: auto; overscroll-behavior: contain; }
 .topbar {
   display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center;
   background: var(--cream); border: 3px solid var(--tan); border-radius: var(--radius);
@@ -180,11 +180,7 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
 .modal-actions { justify-content: center; }
 .tut-foot { font-size: 0.82rem; display: flex; gap: 4px; justify-content: center; align-items: center; }
 
-/* ---------- future community overlay: intentionally empty ---------- */
-.community-slot { position: fixed; right: 16px; bottom: 16px; width: min(360px, calc(100vw - 32px)); z-index: 50; pointer-events: none; }
-.community-slot > * { pointer-events: auto; }
-.community-toggle { position: fixed; right: 16px; top: 8px; z-index: 1001; }
-.community-error { position: fixed; right: 16px; bottom: 16px; z-index: 1001; max-width: 320px; background: var(--cream); padding: 12px; }
+
 
 /* ---------- responsive ---------- */
 @media (max-width: 899px) {
