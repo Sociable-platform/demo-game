@@ -6,6 +6,7 @@ import type { Config } from '../config.js';
 import { AppError } from '../http/errors.js';
 import { rateLimit } from '../http/rateLimit.js';
 import { fakeVerify, hashPassword, verifyPassword } from './passwords.js';
+import { usernameSql } from './usernames.js';
 import { createSession, deleteExpiredSessions, deleteSession } from './sessions.js';
 import type { RequestHandler } from 'express';
 
@@ -38,6 +39,7 @@ export function createUser(
   passwordHash: string,
   onUserCreated: (userId: string) => void,
 ): string {
+  username = username.trim();
   const id = randomUUID();
   db.transaction(() => {
     db.prepare('INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)').run(
@@ -80,12 +82,17 @@ export function createAuthRouter({ db, config, now, requireAuth, onUserCreated }
   const loginLimit = rateLimit({
     windowMs: 60_000,
     max: 10,
-    key: (req) => `login:${req.ip}:${String(req.body?.username ?? '').toLowerCase()}`,
+    key: (req) => `login:${req.ip}:${String(req.body?.username ?? '').trim().toLowerCase()}`,
     enabled: config.rateLimitEnabled,
   });
 
   router.post('/register', registerLimit, async (req, res) => {
     const { username, password } = credentialsSchema.parse(req.body);
+    // Fast feedback before hashing; the unique index also guards the insert
+    // after hashing, when concurrent registrations may have claimed the name.
+    if (db.prepare(`SELECT id FROM users WHERE ${usernameSql} = ?`).get(username)) {
+      throw new AppError(409, 'username_taken', 'This username is already taken.');
+    }
     const passwordHash = await hashPassword(password);
     let userId: string;
     try {
@@ -93,7 +100,7 @@ export function createAuthRouter({ db, config, now, requireAuth, onUserCreated }
     } catch (err) {
       const e = err as { code?: string; errcode?: number };
       if (e.errcode === 2067 || e.code === 'SQLITE_CONSTRAINT_UNIQUE') { // 2067 = SQLITE_CONSTRAINT_UNIQUE
-        throw new AppError(409, 'username_taken', 'That username is already taken.');
+        throw new AppError(409, 'username_taken', 'This username is already taken.');
       }
       throw err;
     }
@@ -106,7 +113,7 @@ export function createAuthRouter({ db, config, now, requireAuth, onUserCreated }
   router.post('/login', loginLimit, async (req, res) => {
     const { username, password } = credentialsSchema.parse(req.body);
     const row = db
-      .prepare('SELECT id, username, password_hash AS hash, created_at AS createdAt FROM users WHERE username = ?')
+      .prepare(`SELECT id, username, password_hash AS hash, created_at AS createdAt FROM users WHERE ${usernameSql} = ?`)
       .get(username) as { id: string; username: string; hash: string; createdAt: number } | undefined;
     const ok = row ? await verifyPassword(password, row.hash) : (await fakeVerify(password), false);
     if (!row || !ok) throw new AppError(401, 'invalid_credentials', 'Invalid username or password.');
