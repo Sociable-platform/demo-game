@@ -3,6 +3,15 @@ import { api, getClanPlayerToken } from './api.js';
 
 afterEach(() => vi.unstubAllGlobals());
 
+it('preserves the duplicate username message for the registration form', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+    error: { code: 'username_taken', message: 'This username is already taken.' },
+  }), { status: 409 })));
+  await expect(api.register(' nuray ', 'secret-pass')).rejects.toMatchObject({
+    status: 409, code: 'username_taken', message: 'This username is already taken.',
+  });
+});
+
 it('acquires player tokens on demand through the game session without exposing backend settings', async () => {
   const fetchMock = vi.fn(async () => new Response(JSON.stringify({ token: 'player-token' })));
   vi.stubGlobal('fetch', fetchMock);

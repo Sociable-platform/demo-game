@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Db } from './connection.js';
+import { usernameConflicts, UsernameConflictError } from '../auth/usernames.js';
 
 const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations');
 
@@ -18,10 +19,18 @@ export function migrate(db: Db, dir: string = migrationsDir): string[] {
   for (const file of files) {
     if (applied.has(file)) continue;
     const sql = fs.readFileSync(path.join(dir, file), 'utf8');
-    db.transaction(() => {
-      db.exec(sql);
-      db.prepare('INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)').run(file, Date.now());
-    })();
+    try {
+      db.transaction(() => {
+        db.exec(sql);
+        db.prepare('INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)').run(file, Date.now());
+      })();
+    } catch (error) {
+      if (file === '002_unique_normalized_usernames.sql') {
+        const conflicts = usernameConflicts(db);
+        if (conflicts.length) throw new UsernameConflictError(conflicts);
+      }
+      throw error;
+    }
     ran.push(file);
   }
   return ran;

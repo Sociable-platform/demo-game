@@ -137,6 +137,55 @@ Error codes: `unauthorized`, `invalid_credentials`, `username_taken`, `validatio
 - **No duplicate rewards or spending**: every action runs in `BEGIN IMMEDIATE`, and each change is a conditional `UPDATE` that re-checks its precondition (`coins >= cost`, `quantity >= n`, `crop_id IS NOT NULL AND ready_at <= now`). A failed check throws and rolls the whole action back. `CHECK` constraints stop negative coins/inventory at the database level.
 - **Headers**: `helmet` (CSP, nosniff, …); API responses are `no-store`. The frontend renders text through React (no `innerHTML`).
 
+### Unique usernames
+
+Registration and login trim surrounding whitespace and compare usernames without
+case sensitivity. `Nuray`, `nuray` and ` nuray ` refer to the same name. The stored
+display name keeps the player's chosen capitalization (`NuRaY` stays `NuRaY`).
+Allowed name characters remain ASCII letters, digits and underscores, 3–20
+characters after trimming. Leading/trailing Unicode whitespace is trimmed too.
+
+Duplicate registration returns HTTP **409**, code `username_taken`, and the form
+shows **“This username is already taken.”** A backend check provides early
+feedback; SQLite's `idx_users_username_normalized` unique expression index is
+the final guard for concurrent registrations and direct database writes.
+
+Migration `002_unique_normalized_usernames.sql` runs automatically on startup,
+including for existing Docker volumes after rebuilding the image. It adds the
+index and trims legacy display names without changing their capitalization,
+account IDs, password hashes, sessions or farm data.
+
+#### Existing username conflicts
+
+If legacy names collide under the new rules, migration stops and rolls back.
+`UsernameConflictError` reports the normalized name plus every affected account's
+ID and current username. No account is automatically renamed, merged or deleted.
+Choose which account retains the name and give the others unused valid names.
+Back up the database first, then update **only `users.username` by account ID**:
+
+```sql
+BEGIN IMMEDIATE;
+UPDATE users SET username = 'Nuray_2' WHERE id = '<reported-account-id>';
+COMMIT;
+```
+
+Run this with a SQLite client against the affected database while the game is
+stopped. For Docker, Node's built-in SQLite can make that same targeted update:
+
+```sh
+docker compose stop game
+docker compose run --rm --no-deps game node --input-type=module -e "import {DatabaseSync} from 'node:sqlite'; const db=new DatabaseSync('/app/data/harvest.db'); db.prepare('UPDATE users SET username=? WHERE id=?').run('Nuray_2','<reported-account-id>'); db.close();"
+docker compose up -d game
+```
+
+Replace both placeholders with the administrator-selected name and reported ID.
+The unchanged ID preserves all progress and relationships. Restart to retry the
+migration. Host-run games use `backend/data/harvest.db` unless `DB_PATH` overrides
+it; Docker uses `/app/data/harvest.db` in **`harvest-village-data`**. These are
+separate databases and must each be migrated. Migration regression tests cover
+conflict reporting, rollback, a targeted rename, existing-account login and
+preservation of farm progress.
+
 ## Clan Platform integration
 
 Keep using the existing game registration/login. After login, the browser can call `POST /api/clan/token`
