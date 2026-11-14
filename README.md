@@ -83,6 +83,8 @@ Level N needs `25·N·(N-1)` total XP (L2 = 50, L3 = 150, L4 = 300). The farm is
 ```bash
 npm test         # backend (52 tests) + frontend (14 tests)
 npm run e2e      # ~20 s: starts a real server, plays the full loop, restarts it, checks races + persistence
+# After building a Docker image (see below):
+IMAGE_CHECK_IMAGE=harvest-village:local IMAGE_CHECK_PORT=13001 npm run test:image
 ```
 
 ## Architecture
@@ -199,7 +201,7 @@ the services to allow the game's origin. HTTPS deployments require an HTTPS SDK 
 Express derives its production CSP from these public environment values. Supply the same values
 when starting a built game so the allowed script and service origins match the frontend.
 
-### Docker build
+### Docker build and Compose
 
 The two-stage Dockerfile builds only this game and serves the frontend through Express as a
 non-root user. It fetches no SDK package or source checkout. From this directory:
@@ -217,6 +219,93 @@ Deployment can replace each public URL, including the SDK script URL. The runtim
 the build's public settings for CSP. API keys remain runtime-only. Environment files, local
 databases, and local SDK checkouts are excluded from the context. An optional private registry
 configuration can be supplied as `--secret id=npmrc,src=/secure/path/npmrc`.
+
+For Compose, set all five public `VITE_*` values above in the root `.env`, then:
+
+```sh
+docker compose build
+# Local HTTP cookies only. The container's bridge reaches host-run Platform
+# through host.docker.internal; browser URLs remain localhost:8081/8082/8083.
+CLAN_PLATFORM_URL=http://host.docker.internal:8081 COOKIE_SECURE=false docker compose up -d --wait
+curl -fsS http://localhost:3001/api/health
+docker compose down
+```
+
+PowerShell uses environment assignments before the start command:
+
+```powershell
+docker compose build
+$env:CLAN_PLATFORM_URL = 'http://host.docker.internal:8081'
+$env:COOKIE_SECURE = 'false'
+docker compose up -d --wait
+curl.exe -fsS http://localhost:3001/api/health
+```
+
+Compose serves the production frontend and API on `127.0.0.1:3001`, includes a
+healthcheck, and mounts `game-data` at `/app/data`. Its exact Docker volume name
+remains **`harvest-village-data`**, independent of Compose's project name. The
+image's `node` user (UID 1000) owns the data directory; a fresh named volume
+inherits those permissions. Existing volumes must also be writable by UID 1000.
+`DB_PATH` is fixed to `/app/data/harvest.db` in Compose. `docker compose down`
+preserves progress; **do not use `down -v`** when keeping accounts and farms.
+For HTTPS, keep `COOKIE_SECURE=true` and configure `APP_ORIGIN`/`TRUST_PROXY`
+for the actual origin and reverse proxy.
+
+`CLAN_GAME_API_KEY` is passed only to the running server from the existing
+environment configuration. There is no API-key build argument. Public settings
+are embedded at build time and retained in the image for CSP. All four service/
+game build arguments fail clearly when empty, as does an explicitly empty
+`VITE_CLAN_SDK_URL`. The compiled TypeScript, Vite assets and production JS-only
+dependencies are built on the builder's native architecture. Each target uses
+its own `node:22-alpine` runtime, including its built-in `node:sqlite`.
+
+The production image integration test creates a **new isolated volume**, runs
+health/static-asset checks, verifies the non-root runtime and SQLite, registers a
+throwaway player, buys/plants/grows/harvests/sells a carrot, recreates the container
+with the same volume, then verifies the account/password, existing session,
+coins, XP, inventory and crop timestamps. It never uses `harvest-village-data`.
+
+```sh
+IMAGE_CHECK_IMAGE=harvest-village:local IMAGE_CHECK_PORT=13001 npm run test:image
+# Optional: leave its disposable container running for manual browser checks.
+IMAGE_CHECK_IMAGE=harvest-village:local npm run test:image -- --keep
+```
+
+In PowerShell set `$env:IMAGE_CHECK_IMAGE` and `$env:IMAGE_CHECK_PORT` separately.
+The test prints cleanup commands when `--keep` is used. This verifies the real
+game image and SQLite, not mocked gameplay. Hosted SDK availability, published
+config, the player-token bridge and Social/Realtime connectivity must also be
+checked in a browser with those services running; API-only image tests do not
+claim those integrations passed.
+
+### GitLab image pipeline
+
+The `.gitlab-ci.yml` adds `test` and `images` jobs. Tests run on Node 22 Alpine;
+the image job follows the team's Docker 27/DinD + named TLS-context buildx
+convention. The accessible clan-frontend CI publishes the UI npm package rather
+than images, so the Docker image setup follows the existing clan-backend job.
+Jobs run automatically on `develop`/`main` and can be started manually in merge
+request pipelines. The runner needs privileged DinD with shared `/certs/client`.
+
+Set these **public CI/CD variables**, available to each image job you run:
+
+| Variable | Meaning |
+| --- | --- |
+| `VITE_GAME_ID` | Registered game ID matching the server's runtime API key |
+| `VITE_PLATFORM_URL` | Browser-accessible Platform HTTP(S) base |
+| `VITE_SOCIAL_URL` | Browser-accessible Social HTTP(S) base |
+| `VITE_REALTIME_URL` | Browser-accessible Realtime HTTP(S) base; SDK derives WS/WSS |
+| `VITE_CLAN_SDK_URL` | Hosted classic SDK script URL, e.g. `https://sdk.example.com/v1/clan-sdk.js` |
+
+The `images` job builds `linux/amd64` and `linux/arm64` into one image index at
+`$CI_REGISTRY_IMAGE/game`, tagged with `$CI_COMMIT_SHA` and the Docker-safe
+`$CI_COMMIT_REF_SLUG`. It adds `latest` only on `main`. Registry login uses GitLab's
+predefined `CI_REGISTRY`, `CI_REGISTRY_USER` and `CI_REGISTRY_PASSWORD` variables.
+Do not add the Platform API key to public CI variables or build arguments; supply
+it only through the deployment's runtime server environment. No deployment job
+is added here. Actual GitLab job execution, push permissions and the published
+multi-platform registry manifest require a CI run; local builds do not establish
+publication success.
 
 To run this image on a free local port:
 

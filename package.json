@@ -19,7 +19,8 @@
     "start": "npm run start -w backend",
     "test": "npm run test -w backend && npm run test -w frontend",
     "seed:demo": "npm run seed:demo -w backend",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "test:image": "node scripts/test-image.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.5"
