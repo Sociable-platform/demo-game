@@ -55,6 +55,7 @@ describe('authentication', () => {
     const dup = await request(app).post('/api/auth/register').send({ username: 'erin', password: 'secret-pass' });
     expect(dup.status).toBe(409);
     expect(dup.body.error.code).toBe('username_taken');
+    expect(dup.body.error.message).toBe('This username is already taken.');
     for (const bad of [
       { username: 'ab', password: 'secret-pass' },
       { username: 'has space', password: 'secret-pass' },
@@ -66,6 +67,49 @@ describe('authentication', () => {
       expect(r.status).toBe(400);
       expect(r.body.error.code).toBe('validation_error');
     }
+  });
+
+  it('trims registration/login usernames and preserves the chosen display capitalization', async () => {
+    const { app } = makeApp();
+    const registered = await request(app).post('/api/auth/register')
+      .send({ username: '\t \u3000NuRaY\u00a0 ', password: 'secret-pass' });
+    expect(registered.status).toBe(201);
+    expect(registered.body.user.username).toBe('NuRaY');
+    for (const username of ['Nuray', 'nuray', ' nuray ', '\tNURAY\u00a0']) {
+      const duplicate = await request(app).post('/api/auth/register').send({ username, password: 'another-password' });
+      expect(duplicate.status).toBe(409);
+      expect(duplicate.body.error).toMatchObject({ code: 'username_taken', message: 'This username is already taken.' });
+      const login = await request(app).post('/api/auth/login').send({ username, password: 'secret-pass' });
+      expect(login.status).toBe(200);
+      expect(login.body.user).toEqual(registered.body.user);
+    }
+  });
+
+  it('permits only one concurrent registration across separate database connections', async () => {
+    const file = tempDbFile();
+    const first = makeApp({ dbFile: file }), second = makeApp({ dbFile: file });
+    try {
+      const results = await Promise.all(['Nuray', ' NURAY ', '\tnuray\t', 'NuRaY'].map((username, i) =>
+        request(i % 2 ? first.app : second.app).post('/api/auth/register').send({ username, password: 'secret-pass' })));
+      expect(results.filter(r => r.status === 201)).toHaveLength(1);
+      expect(results.filter(r => r.status === 409)).toHaveLength(3);
+      for (const result of results.filter(r => r.status === 409)) {
+        expect(result.body.error.message).toBe('This username is already taken.');
+      }
+      expect(first.db.prepare('SELECT count(*) AS n FROM users').get()).toEqual({ n: 1 });
+      expect(first.db.prepare('SELECT count(*) AS n FROM players').get()).toEqual({ n: 1 });
+      expect(first.db.prepare('SELECT count(*) AS n FROM farm_plots').get()).toEqual({ n: 9 });
+    } finally { first.db.close(); second.db.close(); }
+  });
+
+  it('uses the same trimmed case-insensitive username for login rate limiting', async () => {
+    const { app } = makeApp({ env: { RATE_LIMIT: 'true' } });
+    const names = [' Nobody ', 'NOBODY', '\tnobody\t'];
+    let result;
+    for (let i = 0; i < 11; i++) {
+      result = await request(app).post('/api/auth/login').send({ username: names[i % names.length], password: 'wrong-password' });
+    }
+    expect(result!.status).toBe(429);
   });
 
   it('logs in with the right password only, with identical errors for unknown users and wrong passwords', async () => {
