@@ -40,6 +40,8 @@ it("mounts the script global with public settings and the game token callback", 
     assets: {
       badges: {
         "custom-badge": "/badges/badge.png",
+        "custom-badge2": "/badges/badge2.png",
+        "custom-badge3": "/badges/badge3.png",
       },
     },
   });
