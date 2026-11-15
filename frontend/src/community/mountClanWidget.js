@@ -31,6 +31,8 @@ export function mountClanWidget({
       assets: {
         badges: {
           "custom-badge": "/badges/badge.png",
+          "custom-badge2": "/badges/badge2.png",
+          "custom-badge3": "/badges/badge3.png",
         },
       },
     });
