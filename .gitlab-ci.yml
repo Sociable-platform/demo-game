@@ -1,6 +1,7 @@
 stages:
   - test
   - build
+  - deploy
 
 test:
   stage: test
@@ -9,7 +10,7 @@ test:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: manual
       allow_failure: true
-    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main"
   script:
     - npm ci
     - npm test
@@ -26,7 +27,7 @@ images:
     DOCKER_TLS_CERTDIR: "/certs"
     PLATFORMS: linux/amd64,linux/arm64
   rules:
-    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: manual
       allow_failure: true
@@ -55,3 +56,38 @@ images:
         --build-arg VITE_CLAN_SDK_URL \
         --push .
       docker buildx imagetools inspect "$CI_REGISTRY_IMAGE/game:$CI_COMMIT_SHA"
+
+# Deploys this commit's image to the k3s server with deploy/deploy.sh (helm upgrade of the
+# "clan-game" release, image tag = $CI_COMMIT_SHA, the tag the "images" job just pushed).
+# Only main deploys. GitLab lists every deploy under Operate -> Environments -> game-production,
+# where an older one can be deployed again (a rollback).
+#
+# Needs these CI/CD variables:
+#   DEPLOY_SSH_KEY_B64       the CI's SSH private key, base64      (group variable, Protected, Masked)
+#   DEPLOY_SSH_KNOWN_HOSTS   the server's host key                 (group variable, Protected)
+#   CLAN_GAME_API_KEY        the game's Platform API key (this project: Protected, Masked, and
+#                            environment scope "game-production", so only this job receives it;
+#                            it must never be a VITE_ variable or a build argument)
+deploy:
+  stage: deploy
+  image: alpine:3.20
+  # Runs only after this commit's image was pushed.
+  needs: [images]
+  # One game deploy at a time; a second one waits for the first.
+  resource_group: game-production
+  environment:
+    name: game-production
+    url: https://game.130-61-158-79.sslip.io
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  before_script:
+    - apk add --no-cache bash openssh-client
+    # Files readable only by this job's user. The values never appear in the log.
+    - umask 077
+    - mkdir -p ~/.ssh
+    - echo "$DEPLOY_SSH_KEY_B64" | base64 -d > ~/.ssh/id_ed25519
+    - echo "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+  script:
+    - bash deploy/deploy.sh "$CI_COMMIT_SHA"
+  after_script:
+    - rm -f ~/.ssh/id_ed25519

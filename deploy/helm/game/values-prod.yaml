@@ -1,0 +1,11 @@
+# The Oracle server (the same cluster and domain as clan-backend's values-prod.yaml).
+ingress:
+  domain: 130-61-158-79.sslip.io
+  tls:
+    enabled: true
+    clusterIssuer: clan-letsencrypt
+
+# Platform's public address. If the game's pod cannot reach the server's own public address
+# (clan tokens fail with 502 or 504 while Platform is healthy), use the in-cluster address
+# instead: http://platform:8081
+clanPlatformUrl: https://platform.130-61-158-79.sslip.io

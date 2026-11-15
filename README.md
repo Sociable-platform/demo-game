@@ -333,8 +333,8 @@ The `.gitlab-ci.yml` adds `test` and `images` jobs. Tests run on Node 22 Alpine;
 the image job follows the team's Docker 27/DinD + named TLS-context buildx
 convention. The accessible clan-frontend CI publishes the UI npm package rather
 than images, so the Docker image setup follows the existing clan-backend job.
-Jobs run automatically on `develop`/`main` and can be started manually in merge
-request pipelines. The runner needs privileged DinD with shared `/certs/client`.
+Jobs run automatically on `main` (not on `develop`, to save runner minutes) and can be
+started manually in merge request pipelines. The runner needs privileged DinD with shared `/certs/client`.
 
 Set these **public CI/CD variables**, available to each image job you run:
 
@@ -351,10 +351,41 @@ The `images` job builds `linux/amd64` and `linux/arm64` into one image index at
 `$CI_COMMIT_REF_SLUG`. It adds `latest` only on `main`. Registry login uses GitLab's
 predefined `CI_REGISTRY`, `CI_REGISTRY_USER` and `CI_REGISTRY_PASSWORD` variables.
 Do not add the Platform API key to public CI variables or build arguments; supply
-it only through the deployment's runtime server environment. No deployment job
-is added here. Actual GitLab job execution, push permissions and the published
+it only through the deployment's runtime server environment (see "Deploy" below). Actual GitLab job execution, push permissions and the published
 multi-platform registry manifest require a CI run; local builds do not establish
 publication success.
+
+### Deploy
+
+The game runs on the k3s server as its own Helm release, `clan-game`, at
+`https://game.130-61-158-79.sslip.io`. The chart is `deploy/helm/game`; `deploy/deploy.sh <image tag>`
+installs it over SSH, and the CI job `deploy` runs that script on `main` after the image was pushed.
+Deploying the game changes nothing else on the server (clan-backend, Studio and the SDK have their own releases).
+
+- **One pod, replaced not rolled:** SQLite takes one writer, so the old pod stops before the new one
+  starts. A deploy has a few seconds of downtime.
+- **Player progress** is the SQLite file on a 1 GiB disk (`clan-game-data`) mounted at `/app/data`. It
+  survives a pod restart, a deploy and `helm uninstall`. Only deleting that claim by hand erases it.
+- **The Platform API key** is given at deploy time as `CLAN_GAME_API_KEY` and stored in the cluster
+  Secret `clan-game`. In CI it is a project variable: Protected, Masked, environment scope
+  `game-production`. It is never a `VITE_` variable, a build argument or a file in git.
+- **Runtime settings** the chart sets: `TRUST_PROXY=true` (it is behind Traefik),
+  `APP_ORIGIN=https://game.<domain>` and `CLAN_PLATFORM_URL` (from `values-prod.yaml`).
+- **The public `VITE_` values** are baked into the image by the `images` job, so changing one of them
+  needs a new image, not only a deploy.
+
+By hand, from Git Bash, with the key in the environment:
+
+```sh
+CLAN_GAME_API_KEY=... deploy/deploy.sh <commit sha>
+```
+
+Check it on the server:
+
+```sh
+sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n clan get pods -l app.kubernetes.io/name=clan-game
+sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl -n clan logs deploy/clan-game --tail=50
+```
 
 To run this image on a free local port:
 
