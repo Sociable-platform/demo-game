@@ -1,0 +1,49 @@
+# Harvest Village: one Node process that serves the game's API and its built web page on port 3001,
+# with its players and farms in a SQLite file (see ../../../Dockerfile).
+# Installed as its own release, "clan-game", in the same namespace as the clan chart of
+# clan-backend, so the game deploys without touching that chart.
+#
+# It reuses two things the clan chart created, and nothing else:
+#   - the registry pull secret "gitlab-registry" (a group token, so it can pull this image too)
+#   - the ClusterIssuer "clan-letsencrypt" (Let's Encrypt account)
+
+image:
+  repository: registry.gitlab.com/clan-platform/demo-game/game
+  # The commit SHA that the CI job "images" pushed. Required; set by every deploy:
+  #   --set image.tag=<sha>
+  tag: ""
+
+# The pull secret in this namespace. Empty: none (only works if the image is public).
+imagePullSecret: gitlab-registry
+
+# Public URL: https://game.<domain>. Empty domain: nothing is published.
+ingress:
+  domain: ""
+  tls:
+    # true: HTTPS with a Let's Encrypt certificate from cert-manager, and http:// redirects to it.
+    enabled: false
+    # clan-letsencrypt (real certificates) or clan-letsencrypt-staging (untrusted test certificates)
+    clusterIssuer: clan-letsencrypt
+
+# Where the game's server asks Platform for player tokens (POST /api/v1/players/auth, with the API
+# key). Server to server: the browser never sees this URL or the key.
+clanPlatformUrl: ""
+
+# The SQLite file with the players and their farms (/app/data/harvest.db). The disk outlives the
+# pod, a deploy and even `helm uninstall` (it is kept on purpose; delete the PVC by hand to erase).
+storage:
+  size: 1Gi
+  # Empty: the cluster's default class (local-path on k3s).
+  storageClass: ""
+
+secrets:
+  # The game's Platform API key (Studio -> the game -> API keys). Required. Given at deploy time
+  # with --set-file by deploy/deploy.sh, never written in a values file and never in git.
+  clanGameApiKey: ""
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 96Mi
+  limits:
+    memory: 256Mi

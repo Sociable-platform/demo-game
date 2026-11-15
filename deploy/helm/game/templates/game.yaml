@@ -1,0 +1,155 @@
+# Harvest Village: one Node pod with a disk for its SQLite file, published at https://game.<domain>
+# by ingress.yaml.
+{{- $scheme := ternary "https" "http" .Values.ingress.tls.enabled }}
+{{- $apiKey := required "secrets.clanGameApiKey is required: deploy with deploy/deploy.sh, which passes it with --set-file" .Values.secrets.clanGameApiKey | trim }}
+# The game's Platform API key. Only the game's server reads it; it is never sent to a browser.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: clan-game
+  labels:
+    app.kubernetes.io/part-of: clan
+    app.kubernetes.io/name: clan-game
+    app.kubernetes.io/instance: {{ .Release.Name }}
+type: Opaque
+stringData:
+  clan-game-api-key: {{ $apiKey | quote }}
+---
+# The disk of the SQLite file. "keep": helm uninstall leaves it, so player progress is only ever
+# erased by deleting this claim by hand.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: clan-game-data
+  labels:
+    app.kubernetes.io/part-of: clan
+    app.kubernetes.io/name: clan-game
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.storage.storageClass }}
+  storageClassName: {{ .Values.storage.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clan-game
+  labels:
+    app.kubernetes.io/part-of: clan
+    app.kubernetes.io/name: clan-game
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  selector:
+    app.kubernetes.io/name: clan-game
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clan-game
+  labels:
+    app.kubernetes.io/part-of: clan
+    app.kubernetes.io/name: clan-game
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  # One pod, and the old one stops before the new one starts: SQLite takes one writer, and two
+  # pods on the same file would corrupt it. A deploy therefore has a few seconds of downtime.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: clan-game
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: clan
+        app.kubernetes.io/name: clan-game
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        # A changed API key restarts the pod, so it reads the new value.
+        checksum/api-key: {{ $apiKey | sha256sum }}
+    spec:
+      {{- if .Values.imagePullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret }}
+      {{- end }}
+      # The image runs as the "node" user (1000). fsGroup makes the disk writable for it.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: game
+          image: {{ printf "%s:%s" .Values.image.repository (required "image.tag is required: --set image.tag=<commit sha>" .Values.image.tag) }}
+          # A commit SHA never changes, so the node can keep its copy.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3001
+          env:
+            - name: NODE_ENV
+              value: production
+            # Behind Traefik: without it every player has the proxy's address and shares one rate limit.
+            - name: TRUST_PROXY
+              value: "true"
+            {{- if .Values.ingress.domain }}
+            # The only origin whose pages may call the game's API.
+            - name: APP_ORIGIN
+              value: {{ printf "%s://game.%s" $scheme .Values.ingress.domain | quote }}
+            {{- end }}
+            {{- if not .Values.ingress.tls.enabled }}
+            # Without HTTPS a "Secure" session cookie would never be sent back.
+            - name: COOKIE_SECURE
+              value: "false"
+            {{- end }}
+            - name: CLAN_PLATFORM_URL
+              value: {{ required "clanPlatformUrl is required (see values-prod.yaml)" .Values.clanPlatformUrl | quote }}
+            - name: CLAN_GAME_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: clan-game
+                  key: clan-game-api-key
+          volumeMounts:
+            # DB_PATH is /app/data/harvest.db (set in the image).
+            - name: data
+              mountPath: /app/data
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: clan-game-data
