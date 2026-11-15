@@ -16,7 +16,16 @@ export function mountClanWidget({ container, settings, getPlayerToken, onJoined,
     const ClanSDK = window.ClanSDK;
     if (typeof ClanSDK?.init !== 'function') throw new Error('Clan SDK script is unavailable.');
     sdk = ClanSDK.init({ ...settings, getPlayerToken });
-    widget = sdk.mountExperience({ container });
+    widget = sdk.mountExperience({
+      container,
+      assets: {
+        badges: {
+          "custom-badge": "/badges/badge.png",
+          "custom-badge2": "/badges/badge2.png",
+          "custom-badge3": "/badges/badge3.png",
+        },
+      },
+    });
     widget.ready.then(
       () => { if (active) onReady(); },
       () => { if (active) onError(); },
