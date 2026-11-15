@@ -1,0 +1,81 @@
+# https://game.<domain> -> clan-game:3001, through k3s's Traefik.
+# With ingress.tls.enabled, cert-manager gets a Let's Encrypt certificate for this one host
+# (Secret game-tls) from the ClusterIssuer of the clan chart, and plain http:// redirects to https://.
+{{- with .Values.ingress }}
+{{- if .domain }}
+{{- $host := printf "game.%s" .domain }}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: clan-game
+  labels:
+    app.kubernetes.io/part-of: clan
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+spec:
+  entryPoints:
+    - {{ ternary "websecure" "web" .tls.enabled }}
+  routes:
+    - match: Host(`{{ $host }}`)
+      kind: Rule
+      services:
+        - name: clan-game
+          port: 3001
+  {{- if .tls.enabled }}
+  tls:
+    secretName: game-tls
+  {{- end }}
+{{- if .tls.enabled }}
+---
+# Plain http:// answers with a permanent redirect to https://.
+# priority 1 (the lowest): the temporary route cert-manager adds for /.well-known/acme-challenge/
+# must win, because Let's Encrypt checks the domain over plain http.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: clan-game-redirect-https
+  labels:
+    app.kubernetes.io/part-of: clan
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: clan-game-http
+  labels:
+    app.kubernetes.io/part-of: clan
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`{{ $host }}`)
+      kind: Rule
+      priority: 1
+      middlewares:
+        - name: clan-game-redirect-https
+      services:
+        - name: clan-game
+          port: 3001
+---
+# The certificate of this host, renewed by cert-manager before it expires.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: game-tls
+  labels:
+    app.kubernetes.io/part-of: clan
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+spec:
+  secretName: game-tls
+  issuerRef:
+    kind: ClusterIssuer
+    name: {{ .tls.clusterIssuer }}
+  dnsNames:
+    - {{ $host }}
+{{- end }}
+{{- end }}
+{{- end }}

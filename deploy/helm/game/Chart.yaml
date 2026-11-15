@@ -1,0 +1,7 @@
+apiVersion: v2
+name: clan-game
+description: Harvest Village (demo-game, Node and SQLite) at game.<domain>, its own Helm release next to the clan chart
+type: application
+# Version of the chart itself. The game's version is the image tag, set by each deploy.
+version: 0.1.0
+appVersion: "0.1.0"
