@@ -6,6 +6,7 @@ import Farm from './Farm.jsx';
 import Shop from './Shop.jsx';
 import Barn from './Barn.jsx';
 import Tutorial from './Tutorial.jsx';
+import AccountSettingsDialog from './AccountSettingsDialog.jsx';
 
 const tutorialKey = (userId) => `harvest-village:tutorial-seen:${userId}`;
 // localStorage is used ONLY for this cosmetic "seen the tutorial" flag, never for game state.
@@ -17,12 +18,13 @@ const hasSeenTutorial = (userId) => {
   }
 };
 
-export default function GameScreen({ user, onLogout, onSessionExpired, notify }) {
+export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionExpired, notify }) {
   const game = useGame({ notify, onSessionExpired });
   const { state, now, busy } = game;
   const [tab, setTab] = useState('farm'); // used on small screens only
   const [selectedSeed, setSelectedSeed] = useState(null);
   const [showTutorial, setShowTutorial] = useState(() => !hasSeenTutorial(user.id));
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
 
   const closeTutorial = useCallback(() => {
     setShowTutorial(false);
@@ -63,7 +65,8 @@ export default function GameScreen({ user, onLogout, onSessionExpired, notify })
     <div className="app">
       {state ? (
         <>
-          <Header player={state.player} onHelp={() => setShowTutorial(true)} onLogout={onLogout} />
+          <Header player={state.player} onHelp={() => setShowTutorial(true)} onLogout={onLogout}
+            onAccountSettings={() => { setShowTutorial(false); setShowAccountSettings(true); }} />
 
           <nav className="tabs" aria-label="Sections">
             {[['farm', 'Farm'], ['shop', 'Seed Shop'], ['barn', 'Barn']].map(([id, label]) => (
@@ -98,6 +101,7 @@ export default function GameScreen({ user, onLogout, onSessionExpired, notify })
         <p className="loading">Loading your farm…</p>
       )}
       {showTutorial && state && <Tutorial onClose={closeTutorial} />}
+      {showAccountSettings && <AccountSettingsDialog username={user.username} onClose={() => setShowAccountSettings(false)} onDeleteAccount={onDeleteAccount} />}
     </div>
   );
 }

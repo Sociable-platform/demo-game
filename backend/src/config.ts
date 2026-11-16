@@ -15,6 +15,7 @@ export interface Config {
   rateLimitEnabled: boolean;
   frontendDist: string | null;
   clanPlatformUrl: string;
+  clanSocialUrl: string;
   clanGameApiKey: string;
   clanSdkOrigin: string | null;
   clanConnectOrigins: string[];
@@ -59,6 +60,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     rateLimitEnabled: env.RATE_LIMIT !== 'false',
     frontendDist: isProduction ? defaultFrontend : null,
     clanPlatformUrl: env.CLAN_PLATFORM_URL?.trim() ?? '',
+    clanSocialUrl: env.CLAN_SOCIAL_URL?.trim() ?? '',
     clanGameApiKey: env.CLAN_GAME_API_KEY?.trim() ?? '',
     clanSdkOrigin,
     clanConnectOrigins,

@@ -16,8 +16,11 @@ export function useGame({ notify, onSessionExpired }) {
   const offsetRef = useRef(0);
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
+  const alive = useRef(false);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   const apply = useCallback((next) => {
+    if (!alive.current) return;
     offsetRef.current = clockOffset(next.serverTime);
     setNow(Date.now() + offsetRef.current);
     setState(next);
@@ -25,6 +28,7 @@ export function useGame({ notify, onSessionExpired }) {
 
   const fail = useCallback(
     (err) => {
+      if (!alive.current) return;
       if (err.status === 401) onSessionExpired();
       else notify('error', err.message);
     },
@@ -67,6 +71,7 @@ export function useGame({ notify, onSessionExpired }) {
       setBusy(true);
       try {
         const res = await call();
+        if (!alive.current) return;
         apply(res.state);
         onSuccess(res);
       } catch (err) {
@@ -74,7 +79,7 @@ export function useGame({ notify, onSessionExpired }) {
         if (err.status === 409) await refresh(); // our view was stale (e.g. crop not actually ready)
       } finally {
         busyRef.current = false;
-        setBusy(false);
+        if (alive.current) setBusy(false);
       }
     },
     [apply, fail, refresh],

@@ -28,6 +28,7 @@ ingress:
 # Where the game's server asks Platform for player tokens (POST /api/v1/players/auth, with the API
 # key). Server to server: the browser never sees this URL or the key.
 clanPlatformUrl: ""
+clanSocialUrl: ""
 
 # The SQLite file with the players and their farms (/app/data/harvest.db). The disk outlives the
 # pod, a deploy and even `helm uninstall` (it is kept on purpose; delete the PVC by hand to erase).

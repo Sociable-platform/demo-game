@@ -44,6 +44,7 @@ export const api = {
   register: (username, password) => request('POST', '/auth/register', { username, password }),
   login: (username, password) => request('POST', '/auth/login', { username, password }),
   logout: () => request('POST', '/auth/logout', {}),
+  deleteAccount: () => request('DELETE', '/auth/account'),
   me: () => request('GET', '/auth/me'),
   state: () => request('GET', '/game/state'),
   buy: (cropId, quantity) => request('POST', '/game/shop/buy', { cropId, quantity }),
