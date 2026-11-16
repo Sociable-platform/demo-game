@@ -15,6 +15,7 @@ services:
     environment:
       DB_PATH: /app/data/harvest.db
       CLAN_PLATFORM_URL: ${CLAN_PLATFORM_URL:-http://host.docker.internal:8081}
+      CLAN_SOCIAL_URL: ${CLAN_SOCIAL_URL:-http://host.docker.internal:8082}
       CLAN_GAME_API_KEY: ${CLAN_GAME_API_KEY:-}
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3001,http://127.0.0.1:3001}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}

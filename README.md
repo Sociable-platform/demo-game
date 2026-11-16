@@ -78,6 +78,57 @@ In production the session cookie is named `__Host-hv_session` and is `HttpOnly; 
 
 Level N needs `25·N·(N-1)` total XP (L2 = 50, L3 = 150, L4 = 300). The farm is a 3×3 grid. All numbers live in `backend/src/game/catalog.ts`.
 
+## Account deletion
+
+Open the avatar/username menu, choose **Account settings**, then **Delete my account…**. The confirmation
+explains that the game account, all farm progress and the Social profile are
+permanently deleted. Cancel closes it; while deletion is running the controls are
+disabled. A failure keeps the account and shows a retryable error. Success returns
+to login and destroys the mounted community widget and in-memory game state.
+
+Configure these **backend-only runtime settings** (never `VITE_` variables):
+
+```dotenv
+CLAN_PLATFORM_URL=http://localhost:8081
+CLAN_SOCIAL_URL=http://localhost:8082
+CLAN_GAME_API_KEY=your-game-server-key
+```
+
+In Docker, the existing Compose defaults use `host.docker.internal:8081` and
+`:8082`. Helm exposes `clanPlatformUrl` and `clanSocialUrl`; set both to addresses
+reachable by the game server. The API key remains in the existing runtime Secret.
+
+`DELETE /api/auth/account` derives identity only from the authenticated session.
+It obtains a fresh Platform player token using the same helper/request format as
+`POST /api/community/token` (the existing `/api/clan/token` alias is preserved),
+then calls Social `DELETE /api/v1/players/me`. Only 204 or 401 with
+`error.code = player_deleted` permits local deletion. The cleanup token never
+reaches the browser. Both upstream calls have a five-second deadline, including
+response bodies; redirects are rejected. Errors/logs contain no credentials or
+upstream response bodies.
+
+If either service fails, local account data and sessions remain intact. Missing
+configuration returns 503; upstream failures/timeouts return 502; a local deletion
+failure returns 500 and leaves the account available for a retry. Retrying always
+gets a fresh token and safely handles an already-deleted Social profile. The local
+transaction uses foreign-key cascades to delete sessions, player stats, farm plots
+and inventory. Concurrent requests for one user share one cleanup operation, and
+the token bridge refuses to issue widget tokens while that deletion is pending.
+
+Demo resets (HTTP and `seed:demo -- --reset`) use this same cleanup service. They
+stop on cleanup failure, keeping the failed account and any unprocessed accounts;
+earlier successfully reset demo accounts may already have been recreated. There
+is no separate local-only bulk deletion path. Creating demo accounts when absent
+does not require Social connectivity.
+
+Validation: backend deletion tests mock Platform/Social `fetch` with real SQLite
+and game sessions. The browser deletion check runs the built game and backend
+with in-memory SQLite, mocked Platform/Social responses and a mocked widget to
+verify confirmation/cancel/pending/error/success and widget cleanup. A separate TEAM-249
+integration check must use real services: delete `test` via the game UI, verify
+another player's search no longer finds it, then register `test` again, open the
+community widget and verify search finds exactly the new profile.
+
 ## Tests
 
 ```bash

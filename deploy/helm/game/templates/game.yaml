@@ -118,6 +118,8 @@ spec:
             {{- end }}
             - name: CLAN_PLATFORM_URL
               value: {{ required "clanPlatformUrl is required (see values-prod.yaml)" .Values.clanPlatformUrl | quote }}
+            - name: CLAN_SOCIAL_URL
+              value: {{ required "clanSocialUrl is required (see values-prod.yaml)" .Values.clanSocialUrl | quote }}
             - name: CLAN_GAME_API_KEY
               valueFrom:
                 secretKeyRef:

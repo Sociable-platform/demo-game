@@ -7,6 +7,7 @@ import type { Config } from './config.js';
 import type { Db } from './db/connection.js';
 import { createRequireAuth } from './auth/middleware.js';
 import { createAuthRouter } from './auth/routes.js';
+import { createAccountDeletion } from './auth/delete-account.js';
 import { createGameService } from './game/service.js';
 import { createGameRouter } from './game/routes.js';
 import { createDevRouter } from './dev/routes.js';
@@ -55,13 +56,16 @@ export function createApp({ config, db, now = Date.now }: AppDeps): Express {
 
   const game = createGameService(db, now);
   const requireAuth = createRequireAuth(db, config, now);
+  const accountDeletion = createAccountDeletion(db, config);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.get('/api/config', (_req, res) => res.json({ devMode: config.enableDevRoutes }));
-  app.use('/api/auth', createAuthRouter({ db, config, now, requireAuth, onUserCreated: game.initPlayer }));
+  app.use('/api/auth', createAuthRouter({ db, config, now, requireAuth, onUserCreated: game.initPlayer, deleteAccount: accountDeletion.deleteAccount }));
   app.use('/api/game', createGameRouter(game, requireAuth));
-  app.use('/api/clan', createClanRouter(config, requireAuth));
-  if (config.enableDevRoutes) app.use('/api/dev', createDevRouter(db, now, game.initPlayer));
+  const community = createClanRouter(config, requireAuth, accountDeletion.assertTokenAllowed);
+  app.use('/api/community', community);
+  app.use('/api/clan', community); // Preserve existing SDK token callbacks.
+  if (config.enableDevRoutes) app.use('/api/dev', createDevRouter(db, now, game.initPlayer, accountDeletion.deleteAccount));
   app.use('/api', notFoundHandler);
 
   // In production the built frontend is served by this same server (same origin => cookies just work).
