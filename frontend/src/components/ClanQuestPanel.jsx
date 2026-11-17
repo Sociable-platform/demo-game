@@ -73,6 +73,7 @@ export default function ClanQuestPanel({ state, game, onSessionExpired }) {
 
   return (
     <section className="card quest-card" aria-labelledby="quest-title">
+      <p className="pq-eyebrow">Clan Quest · shared with your clan</p>
       <h2 id="quest-title">Village Festival</h2>
       <p className="hint">Your clan is planning a festival! Work together in chat and bring {q?.target ?? 100} carrots to the village.</p>
 

@@ -50,11 +50,11 @@ function Plot({ plot, catalog, now, onClick }) {
   );
 }
 
-export default function Farm({ state, now, selectedSeed, onSelectSeed, onPlotClick, hint, busy = false, events, use3d, onFail3d, panel, onTogglePanel }) {
+export default function Farm({ state, now, selectedSeed, onSelectSeed, onPlotClick, hint, busy = false, events, use3d, onFail3d, panel, onTogglePanel, delivery, onOpenKiosk }) {
   const { catalog, inventory, farm } = state;
   const hud = (overlay) => (
     <FarmHud catalog={catalog} inventory={inventory} selectedSeed={selectedSeed} onSelectSeed={onSelectSeed} hint={hint}
-      panel={panel} onTogglePanel={onTogglePanel} overlay={overlay} />
+      panel={panel} onTogglePanel={onTogglePanel} onOpenKiosk={onOpenKiosk} overlay={overlay} />
   );
   const classic = (
     <section className="card panel-farm" aria-labelledby="farm-title">
@@ -72,7 +72,7 @@ export default function Farm({ state, now, selectedSeed, onSelectSeed, onPlotCli
     <section className="farm-world" aria-label="Your farm">
       <FarmBoundary fallback={classic} onError={onFail3d}>
         <Suspense fallback={<div className="farm3d-loading" role="status">Loading your 3D farm…</div>}>
-          <Farm3D state={state} now={now} busy={busy} events={events} onPlotClick={onPlotClick} onFail={onFail3d} />
+          <Farm3D state={state} now={now} busy={busy} events={events} onPlotClick={onPlotClick} onFail={onFail3d} delivery={delivery} onKiosk={onOpenKiosk} />
         </Suspense>
         {hud(true)}
       </FarmBoundary>

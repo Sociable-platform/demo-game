@@ -31,6 +31,7 @@ export function Basket({ landRef }) {
 const SHAPES = {
   carrot: { geo: 'cone6', mat: 'carrot', scale: [0.13, 0.5, 0.13], rot: [Math.PI, 0, 0.5] },
   tomato: { geo: 'sphere', mat: 'tomatoRed', scale: [0.24, 0.24, 0.24], rot: [0, 0, 0] },
+  potato: { geo: 'sphere', mat: 'potato', scale: [0.27, 0.2, 0.22], rot: [0, 0, 0.3] },
   pumpkin: { geo: 'sphere', mat: 'pumpkin', scale: [0.34, 0.28, 0.34], rot: [0, 0, 0] },
 };
 
@@ -54,6 +55,7 @@ export function FlyingCrops({ flightsRef, landRef }) {
         continue;
       }
       const k = (now - f.t0) / FLY_MS;
+      if (k < 0) { g.visible = false; continue; } // staggered flight, not started yet
       if (k >= 1) {
         landRef.current = now;
         slot.flight = null;

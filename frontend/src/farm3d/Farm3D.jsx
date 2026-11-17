@@ -11,7 +11,7 @@ const FLOAT_MS = 1700;
  * The 3D farm. It renders the SAME authoritative state as the 2D grid and calls the SAME click handler.
  * A compact DOM list under the canvas keeps timers, status and keyboard access readable outside WebGL.
  */
-export default function Farm3D({ state, now, busy, events, onPlotClick, onFail }) {
+export default function Farm3D({ state, now, busy, events, onPlotClick, onFail, delivery, onKiosk }) {
   const { catalog, farm } = state;
 
   // Refs hold fast-changing values so the WebGL scene reads them per frame without React re-renders.
@@ -19,6 +19,7 @@ export default function Farm3D({ state, now, busy, events, onPlotClick, onFail }
   const busyRef = useRef(busy);
   const plotsRef = useRef(farm.plots);
   const cropNameRef = useRef(() => '');
+  const bubbleRef = useRef(null); // the courier's speech bubble, positioned by the scene every frame
   const controlRef = useRef(null); // lets the DOM plot list cancel a queued farmer interaction
   useEffect(() => { clockRef.current = { now, at: performance.now() }; }, [now]);
   useEffect(() => { busyRef.current = busy; }, [busy]);
@@ -83,7 +84,7 @@ export default function Farm3D({ state, now, busy, events, onPlotClick, onFail }
           role="img"
           aria-label="Your 3D farm. Use the plot list below the picture for keyboard access."
         >
-          <FarmScene views={views} events={events} onSelect={onSelect} busyRef={busyRef} clockRef={clockRef} cropNameRef={cropNameRef} onFloat={onFloat} controlRef={controlRef} />
+          <FarmScene views={views} events={events} onSelect={onSelect} busyRef={busyRef} clockRef={clockRef} cropNameRef={cropNameRef} onFloat={onFloat} controlRef={controlRef} delivery={delivery} bubbleRef={bubbleRef} onKiosk={onKiosk} />
         </Canvas>
         <div className="farm3d-floats" aria-hidden="true">
           {floats.map((f) => (
@@ -92,6 +93,7 @@ export default function Farm3D({ state, now, busy, events, onPlotClick, onFail }
             </span>
           ))}
         </div>
+        <div ref={bubbleRef} className="farm3d-bubble" aria-hidden="true">A delivery for you!</div>
         {busy && <div className="farm3d-pending" role="status">Working…</div>}
       </div>
 

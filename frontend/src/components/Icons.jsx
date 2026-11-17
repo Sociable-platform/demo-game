@@ -23,6 +23,18 @@ const CROP_ART = {
       <rect x="22.8" y="6" width="2.4" height="8" rx="1.2" fill="#3f7f2c" />
     </>
   ),
+  potato: (
+    <>
+      <ellipse cx="24" cy="29" rx="17" ry="13.5" transform="rotate(-12 24 29)" fill="#c99a5b" />
+      <ellipse cx="19" cy="24" rx="7" ry="3.2" fill="#fff" opacity=".25" transform="rotate(-25 19 24)" />
+      <g fill="#9b6f38">
+        <ellipse cx="17" cy="31" rx="1.8" ry="1.2" />
+        <ellipse cx="27" cy="26" rx="1.8" ry="1.2" />
+        <ellipse cx="31" cy="34" rx="1.8" ry="1.2" />
+        <ellipse cx="22" cy="37" rx="1.5" ry="1" />
+      </g>
+    </>
+  ),
   pumpkin: (
     <>
       <ellipse cx="14.5" cy="29" rx="9.5" ry="14" fill="#ee8420" />

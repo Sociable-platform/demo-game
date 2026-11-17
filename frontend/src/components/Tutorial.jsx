@@ -5,7 +5,7 @@ const STEPS = [
   { title: 'Welcome to Harvest Village!', art: <CropIcon cropId="carrot" size={64} />, body: 'You have a little farm, 50 coins and 3 carrot seeds. Let’s grow something.' },
   { title: '1. Plant', art: <SeedPacket cropId="carrot" size={64} />, body: 'Choose a seed above the farm, then tap an empty plot. Need more seeds? Buy them in the Seed Shop.' },
   { title: '2. Wait and harvest', art: <CropIcon cropId="tomato" size={64} />, body: 'Each plot shows a countdown. When it glows and says “Ready!”, tap it to harvest. The server keeps the clock, so closing the tab won’t stop growth.' },
-  { title: '3. Sell and level up', art: <Coin size={60} />, body: 'Sell crops in the Barn for coins. Every harvest earns XP; at level 2 you unlock pumpkins, the most valuable crop.' },
+  { title: '3. Sell and level up', art: <Coin size={60} />, body: 'Sell crops in the Barn for coins. Every harvest earns XP; at level 2 you unlock potatoes and pumpkins, the most valuable crop. Check the Quests button for goals to work towards.' },
 ];
 
 export default function Tutorial({ onClose }) {

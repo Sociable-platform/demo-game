@@ -15,9 +15,11 @@ afterEach(() => {for (const {db,directory} of resources.splice(0)) {db.close();r
 function legacy() {
   const directory = mkdtempSync(join(tmpdir(),'hv-legacy-usernames-'));
   copyFileSync(new URL('../src/db/migrations/001_init.sql',import.meta.url),join(directory,'001_init.sql'));
+  // Game state now includes personal quests, so the legacy fixture also has those (independent) tables.
+  copyFileSync(new URL('../src/db/migrations/005_personal_quests.sql',import.meta.url),join(directory,'005_personal_quests.sql'));
   const db = openDb(join(directory,'legacy.db')); resources.push({db,directory});
   migrate(db,directory);
-  const app = createApp({db,config:loadConfig({RATE_LIMIT:'false'})});
+  const app = createApp({db,config:loadConfig({RATE_LIMIT:'false'}),rollYield:()=>1});
   return {db,app};
 }
 
@@ -29,7 +31,7 @@ describe('normalized username migration', () => {
     db.prepare('UPDATE users SET username = ? WHERE id = ?').run('\t NuRaY\u00a0',user.id);
     const hash = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(user.id);
     const before = (await agent.get('/api/game/state')).body;
-    expect(migrate(db)).toEqual(['002_unique_normalized_usernames.sql', '003_clan_quest.sql']);
+    expect(migrate(db)).toEqual(['002_unique_normalized_usernames.sql', '003_clan_quest.sql', '004_deliveries.sql', '006_market.sql', '007_market_audiences.sql']);
     expect(migrate(db)).toEqual([]);
     expect(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(user.id)).toEqual(hash);
     const after = (await agent.get('/api/game/state')).body;

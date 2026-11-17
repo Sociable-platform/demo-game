@@ -8,7 +8,7 @@ import { plotPosition } from './layout.js';
 const SPEED = 4.4; // world units per second
 const WORK_S = 0.38; // seconds of "bend over" before the action is submitted
 
-const lerpAngle = (a, b, k) => {
+export const lerpAngle = (a, b, k) => {
   let d = (b - a) % (Math.PI * 2);
   if (d > Math.PI) d -= Math.PI * 2;
   if (d < -Math.PI) d += Math.PI * 2;
@@ -22,6 +22,7 @@ const lerpAngle = (a, b, k) => {
  * Imperative API (via `apiRef`):
  *  - walkTo([x, z])   walk there and drop any queued plot interaction
  *  - interact(index)  walk beside a plot, then call onArrive(index) ONCE; returns false if unreachable
+ *  - visit(point, face, fn)  walk to `point`, turn towards `face`, then call fn() ONCE (e.g. open the Kiosk)
  *  - cancel()         drop the queued interaction and stop
  */
 export default function Farmer({ apiRef, posRef, onArrive }) {
@@ -52,6 +53,15 @@ export default function Farmer({ apiRef, posRef, onArrive }) {
       st.path = route.path;
       st.dest = null;
       st.intent = { index, t: 0 };
+      return true;
+    },
+    visit(point, face, fn) {
+      const st = s.current;
+      const path = findPath([st.x, st.z], point);
+      if (!path) return false;
+      st.path = path;
+      st.dest = null;
+      st.intent = { face, fn, t: 0 };
       return true;
     },
     cancel() {
@@ -89,13 +99,17 @@ export default function Farmer({ apiRef, posRef, onArrive }) {
     let work = 0;
     if (!moving && st.intent) {
       st.intent.t += dt;
-      const [px, , pz] = plotPosition(st.intent.index);
+      const [px, pz] = st.intent.face ?? [plotPosition(st.intent.index)[0], plotPosition(st.intent.index)[2]];
       st.angle = lerpAngle(st.angle, Math.atan2(px - st.x, pz - st.z), Math.min(1, dt * 12));
+      if (st.intent.fn) {
+        if (st.intent.t >= 0.3) { const fn = st.intent.fn; st.intent = null; fn(); } // arrived at a building: no bending
+      } else {
       work = Math.min(1, st.intent.t / WORK_S);
       if (work >= 1) {
         const index = st.intent.index;
         st.intent = null;
         onArrive(index);
+      }
       }
     }
 

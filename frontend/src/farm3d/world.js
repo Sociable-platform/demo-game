@@ -14,23 +14,32 @@ export const HOUSE = { x: -10.5, z: -2.5, rot: Math.PI / 4 + 0.3 };
 export const BARN = { x: -3.5, z: -11, rot: Math.PI / 4 - 0.25 };
 export const MILL = { x: 10, z: -9, rot: Math.PI / 4 };
 export const BASKET_POS = [8, 0.4, 6.2];
+// The Kiosk (player market): a small stall east of the fields, facing the fields and the road.
+export const KIOSK = { x: 13.2, z: 5.6, rot: -1.2 };
+export const KIOSK_STAND_LOCAL = [0, 1.8]; // in front of the counter, in kiosk-local coordinates
 
 export const TREES = [
   [-8.2, 7.0, 1.1, 'pine'], [-13.5, 3.5, 1.0, 'round'], [-14.5, -7.5, 1.2, 'pine'], [-9.5, -9.2, 0.9, 'round'],
   [1.5, -13.5, 1.1, 'pine'], [6.5, -12.5, 0.9, 'round'], [14.5, -3.5, 1.1, 'pine'], [15.5, 4.0, 0.9, 'round'],
   [13.5, 12.5, 1.1, 'pine'], [5.5, 14.5, 1.0, 'round'], [-4.5, 14.8, 1.2, 'pine'], [-13.5, 12.8, 1.0, 'round'],
-  [11.5, 8.2, 0.8, 'round'], [-16.5, -1.5, 0.9, 'pine'], [-7.2, -6.2, 0.8, 'round'], [8.5, -5.2, 0.8, 'pine'],
+  [11.5, 10.8, 0.8, 'round'], [-16.5, -1.5, 0.9, 'pine'], [-7.2, -6.2, 0.8, 'round'], [8.5, -5.2, 0.8, 'pine'],
 ];
 export const ROCKS = [[-5.5, 9.6, 0.32], [11.8, 3.2, 0.26], [-12, -5.8, 0.22], [4.2, -8.4, 0.3]];
 
 // Dirt paths: [centreX, centreZ, width(x), depth(z)]
 export const PATHS = [
   [0, 7.0, 1.8, 3.2], // front gate
-  [0, 8.2, 22, 1.6], // east-west road
+  [0, 8.2, 38, 1.6], // east-west road, running out of the world at both ends (the courier's entrance)
   [7.5, 0, 3.6, 1.8], // side gate
   [9.2, 4.1, 1.6, 8.2], // side road down to the road
   [-10.2, 3.0, 1.6, 10.4], // road to the farmhouse
 ];
+
+// Courier delivery: it enters from either end of the east-west road (whichever is further off screen), follows the
+// road to the farmhouse road, and stops in front of the door. Waypoints are joined with the navigation grid.
+export const COURIER_ENTRANCES = [[18.4, 8.2], [-18.4, 8.2]];
+export const COURIER_WAYPOINTS = [[-10.2, 8.2], [-10.2, 0.4]]; // road junction, then up the farmhouse road
+export const PARCEL_LOCAL = [-1.0, 1.4]; // where the parcel is put down, in house-local coordinates
 
 /** Fence posts and rails around the field, with gate openings on the +z and +x sides. */
 export function fenceLayout() {
@@ -61,7 +70,7 @@ export function fenceLayout() {
   return { posts, rails };
 }
 
-const toWorld = (o, lx, lz) => [o.x + lx * Math.cos(o.rot) + lz * Math.sin(o.rot), o.z - lx * Math.sin(o.rot) + lz * Math.cos(o.rot)];
+export const toWorld = (o, lx, lz) => [o.x + lx * Math.cos(o.rot) + lz * Math.sin(o.rot), o.z - lx * Math.sin(o.rot) + lz * Math.cos(o.rot)];
 
 /** Everything the farmer cannot walk through (before inflating by WALK_RADIUS). */
 export function obstacles() {
@@ -72,6 +81,7 @@ export function obstacles() {
   out.push({ t: 'circle', x: hx, z: hz, r: 0.5 });
   out.push({ t: 'circle', x: MILL.x, z: MILL.z, r: 1.15 });
   out.push({ t: 'circle', x: BASKET_POS[0], z: BASKET_POS[2], r: 0.5 });
+  out.push({ t: 'rect', x: KIOSK.x, z: KIOSK.z, rot: KIOSK.rot, hx: 1.15, hz: 0.7 });
   TREES.forEach(([x, z, s]) => out.push({ t: 'circle', x, z, r: 0.4 * s }));
   ROCKS.forEach(([x, z, s]) => out.push({ t: 'circle', x, z, r: s * 1.1 }));
   const half = (PLOT_SIZE + 0.24) / 2;
@@ -91,3 +101,11 @@ export function plotApproachPoints(index) {
   const d = (PLOT_SIZE + 0.24) / 2 + 0.5;
   return [[x, z + d], [x + d, z], [x - d, z], [x, z - d]];
 }
+
+/** Standing point in front of the farmhouse door, and the door itself to face. */
+export const DOOR_STAND = toWorld(HOUSE, -0.15, 1.75);
+export const DOOR_POS = toWorld(HOUSE, -0.45, 0.96);
+
+/** Where the farmer stands to use the Kiosk, and the point he faces. */
+export const KIOSK_STAND = toWorld(KIOSK, KIOSK_STAND_LOCAL[0], KIOSK_STAND_LOCAL[1]);
+export const KIOSK_FACE = [KIOSK.x, KIOSK.z];

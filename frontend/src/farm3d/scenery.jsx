@@ -56,6 +56,40 @@ export function Barn(props) {
   );
 }
 
+/**
+ * The Kiosk: a market stall with a striped awning, a counter with produce and a coin sign. Clicking it opens the
+ * market (`onOpen`); the click target is an invisible box so the model itself carries no handlers.
+ */
+export function Kiosk({ onOpen, ...props }) {
+  const stripes = [-1.0, -0.6, -0.2, 0.2, 0.6, 1.0];
+  return (
+    <group {...props}>
+      {[[-1.05, -0.55], [1.05, -0.55], [-1.05, 0.55], [1.05, 0.55]].map(([x, z]) => (
+        <Part key={`${x}:${z}`} geo="box" mat="woodDark" cast position={[x, 0.85, z]} scale={[0.1, 1.7, 0.1]} />
+      ))}
+      <Part geo="box" mat="wood" cast receive position={[0, 0.45, 0.45]} scale={[2.2, 0.9, 0.55]} />
+      <Part geo="box" mat="woodDark" position={[0, 0.93, 0.45]} scale={[2.3, 0.06, 0.65]} />
+      <Part geo="box" mat="wood" cast position={[0, 0.45, -0.5]} scale={[2.2, 0.9, 0.1]} />
+      {stripes.map((x, i) => (
+        <Part key={x} geo="box" mat={i % 2 ? 'trim' : 'roofRed'} cast position={[x, 1.78, 0.05]} rotation={[0.28, 0, 0]} scale={[0.4, 0.07, 1.5]} />
+      ))}
+      <Part geo="box" mat="trim" cast position={[0, 1.2, -0.62]} scale={[2.2, 0.9, 0.06]} />
+      <group position={[0, 1.55, 0.78]}>
+        <Part geo="disc" mat="gold" position={[0, 0, 0.03]} rotation={[Math.PI / 2, 0, 0]} scale={[0.2, 0.04, 0.2]} />
+      </group>
+      <Part geo="box" mat="hay" cast position={[-0.65, 1.07, 0.45]} scale={[0.55, 0.2, 0.4]} />
+      <Part geo="sphere" mat="carrot" position={[-0.8, 1.22, 0.45]} scale={[0.14, 0.14, 0.14]} />
+      <Part geo="sphere" mat="tomatoRed" position={[-0.55, 1.24, 0.5]} scale={[0.15, 0.15, 0.15]} />
+      <Part geo="sphere" mat="pumpkin" position={[0.55, 1.14, 0.45]} scale={[0.22, 0.18, 0.22]} />
+      <Part geo="sphere" mat="potato" position={[0.9, 1.1, 0.5]} scale={[0.17, 0.12, 0.13]} />
+      <mesh position={[0, 0.9, 0.2]} dispose={null} onClick={(e) => { e.stopPropagation(); onOpen?.(); }}>
+        <boxGeometry args={[2.4, 1.9, 1.6]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
 export function Windmill(props) {
   const blades = useRef();
   useFrame((_, dt) => {

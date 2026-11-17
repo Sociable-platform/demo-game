@@ -51,7 +51,8 @@ export function harvestRewards(result, cropName) {
   if (!result || result.action !== 'harvest') return [];
   const items = [];
   if (Number.isFinite(result.xpGained) && result.xpGained > 0) items.push({ kind: 'xp', text: `+${result.xpGained} XP` });
-  items.push({ kind: 'crop', text: `+1 ${cropName ?? result.cropId}` });
+  const amount = Number.isInteger(result.yield) && result.yield > 0 ? result.yield : 1; // crops this harvest actually gave (server roll)
+  items.push({ kind: 'crop', text: `+${amount} ${cropName ?? result.cropId}` });
   if (result.leveledUp) items.push({ kind: 'level', text: `Level ${result.newLevel}!` });
   return items;
 }

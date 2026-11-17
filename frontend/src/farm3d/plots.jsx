@@ -42,6 +42,22 @@ function Tomato({ getP, ready }) {
   );
 }
 
+function Potato({ getP, ready }) {
+  const tubers = useRef();
+  useFrame(() => {
+    const k = clamp01((getP() - 0.45) / 0.55);
+    if (!tubers.current) return;
+    tubers.current.visible = k > 0;
+    tubers.current.scale.setScalar(0.4 + 0.6 * k);
+  });
+  return (
+    <>
+      <Part geo="potatoFoliage" mat="leaf" />
+      <Part ref={tubers} geo="potatoTubers" mat={ready ? 'potato' : 'potatoPale'} visible={false} />
+    </>
+  );
+}
+
 function Pumpkin({ getP, ready }) {
   const body = useRef();
   useFrame(() => {
@@ -61,7 +77,7 @@ function Pumpkin({ getP, ready }) {
   );
 }
 
-const KINDS = { carrot: Carrot, tomato: Tomato, pumpkin: Pumpkin };
+const KINDS = { carrot: Carrot, tomato: Tomato, potato: Potato, pumpkin: Pumpkin };
 
 function Crop({ view, clockRef, popRef }) {
   const group = useRef();

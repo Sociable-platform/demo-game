@@ -4,7 +4,7 @@ import { SeedPacket } from './Icons.jsx';
  * Compact farm HUD: seed picker, Shop/Barn buttons and the next-step hint. Coins and level/XP live in the header.
  * `overlay` floats it over the 3D world; otherwise it is a normal bar above the 2D farm.
  */
-export default function FarmHud({ catalog, inventory, selectedSeed, onSelectSeed, hint, panel, onTogglePanel, overlay = false }) {
+export default function FarmHud({ catalog, inventory, selectedSeed, onSelectSeed, hint, panel, onTogglePanel, onOpenKiosk, overlay = false }) {
   return (
     <div className={`farm-hud ${overlay ? 'farm-hud--overlay' : ''}`}>
       <div className="seed-tray farm-hud-seeds" role="group" aria-label="Choose a seed to plant">
@@ -23,7 +23,9 @@ export default function FarmHud({ catalog, inventory, selectedSeed, onSelectSeed
         ))}
       </div>
       <div className="farm-hud-menu">
-        {[['shop', 'Seed Shop'], ['barn', 'Barn'], ['quest', 'Clan Quest']].map(([id, label]) => (
+        {/* In the 3D world only Quests is a button; the Kiosk is reached by walking up to it. The 2D farm has no world to walk in, so it keeps every button. */}
+        {!overlay && <button type="button" className="btn btn-small" aria-haspopup="dialog" onClick={onOpenKiosk}>Kiosk</button>}
+        {[['shop', 'Seed Shop'], ['barn', 'Barn'], ['quest', 'Quests']].filter(([id]) => !overlay || id === 'quest').map(([id, label]) => (
           <button
             key={id}
             type="button"

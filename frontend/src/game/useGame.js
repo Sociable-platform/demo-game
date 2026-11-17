@@ -111,7 +111,8 @@ export function useGame({ notify, onSessionExpired, onActionResult }) {
       run(
         () => api.harvest(plotIndex),
         (r) => {
-          notify('success', `Harvested ${cropName(r.cropId)}! +${r.xpGained} XP`);
+          const n = Number.isInteger(r.yield) && r.yield > 0 ? r.yield : 1;
+          notify('success', `Harvested ${n} ${cropName(r.cropId)}${n === 1 ? '' : 's'}! +${r.xpGained} XP`);
           if (r.leveledUp) notify('success', `Level up! You reached level ${r.newLevel}.`);
         },
       ),
@@ -126,6 +127,40 @@ export function useGame({ notify, onSessionExpired, onActionResult }) {
         () => api.questClaim(),
         (r) => notify('success', r.coinsGranted > 0 ? `Reward claimed: +${r.coinsGranted} coins!` : 'Reward already claimed.'),
       ),
+    // Kiosk (player-to-player market). The server verifies clan/friends and moves coins and crops atomically.
+    marketOffer: (offer) =>
+      run(
+        () => api.marketCreate(offer),
+        () => notify('success', `Offer posted: ${offer.quantity} ${cropName(offer.cropId)} for ${offer.price} coins.`),
+      ),
+    marketCancel: (id) =>
+      run(
+        () => api.marketCancel(id),
+        (r) => notify('info', r.cancelled ? 'Offer cancelled. Your crops are back in the barn.' : 'That offer was already closed.'),
+      ),
+    marketBuy: (id) =>
+      run(
+        () => api.marketBuy(id),
+        (r) => notify('success', `Bought ${r.quantity} ${cropName(r.cropId)} from ${r.seller} for ${r.price} coins.`),
+      ),
+    // Personal level quest: the server validates progress and pays XP + coins once; the state it returns updates the HUD.
+    claimPersonalQuest: (questId) =>
+      run(
+        () => api.personalQuestClaim(questId),
+        (r) => {
+          if (!r.granted) return notify('info', 'That quest reward was already claimed.');
+          notify('success', `Quest complete! +${r.reward.xp} XP, +${r.reward.coins} coins`);
+          if (r.leveledUp) notify('success', `Level up! You reached level ${r.newLevel}.`);
+          return undefined;
+        },
+      ),
+    // Courier delivery: only the delivery id is sent. The server decides and returns the reward; state is replaced
+    // by the authoritative state in `run`. Resolves { ok, granted, reward, err }; never rejects.
+    claimDelivery: async (id) => {
+      let reply = null;
+      const r = await run(() => api.deliveryClaim(id), (res) => { reply = res; });
+      return r.ok && reply ? { ok: true, granted: Boolean(reply.granted), reward: reply.reward } : { ok: false, granted: false, err: r.err };
+    },
     sell: (cropId, quantity) =>
       run(
         () => api.sell(cropId, quantity),

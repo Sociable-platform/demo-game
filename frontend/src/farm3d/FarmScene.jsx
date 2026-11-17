@@ -2,12 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { AssetsProvider } from './assets.jsx';
-import { Barn, Clouds, Farmhouse, Fences, Trees, Windmill, World } from './scenery.jsx';
+import { Barn, Clouds, Farmhouse, Fences, Kiosk, Trees, Windmill, World } from './scenery.jsx';
 import Plot from './plots.jsx';
 import Farmer from './farmer.jsx';
 import { Basket, FlyingCrops } from './effects.jsx';
+import Courier, { DoorParcel } from './courier.jsx';
 import { harvestRewards, plotPosition } from './layout.js';
-import { BARN, FARMER_START, HOUSE, MILL } from './world.js';
+import { BARN, DOOR_STAND, KIOSK, KIOSK_FACE, KIOSK_STAND, FARMER_START, HOUSE, MILL, PARCEL_LOCAL, toWorld } from './world.js';
+
+const COLLECT_RANGE = 1.7; // the farmer must stand this close to the parcel to collect it
+const PARCEL_XZ = toWorld(HOUSE, PARCEL_LOCAL[0], PARCEL_LOCAL[1]);
 
 // Elevated isometric-style camera that glides after the farmer and keeps the field in view.
 const CAM_OFFSET = [10.5, 10, 10.5];
@@ -74,13 +78,17 @@ function Rig({ posRef, focusRef }) {
  * beside it and then calls `onSelect(index)` (the existing plant/harvest handler) once. Any new click cancels a
  * queued, not-yet-submitted interaction. Effects only play from server-confirmed results (`events`).
  */
-export default function FarmScene({ views, events, onSelect, busyRef, clockRef, cropNameRef, onFloat, controlRef }) {
+export default function FarmScene({ views, events, onSelect, busyRef, clockRef, cropNameRef, onFloat, controlRef, delivery, bubbleRef, onKiosk }) {
   const popRef = useRef({}); // plotIndex -> performance.now() of the confirmed plant
   const flightsRef = useRef([]); // crops about to fly to the basket
   const landRef = useRef(-1e9); // performance.now() of the last crop landing in the basket
   const posRef = useRef({ x: FARMER_START[0], z: FARMER_START[1] });
   const focusRef = useRef({ x: 0, z: 0 });
   const farmer = useRef(null);
+  const parcelRef = useRef(null); // the parcel at the door: { phase: 'idle' | 'collected', t0 }
+  const collecting = useRef({ busy: false, retryAt: 0 });
+  const deliveryRef = useRef(delivery);
+  deliveryRef.current = delivery;
   const viewsRef = useRef(views);
   const get = useThree((s) => s.get);
   useEffect(() => { viewsRef.current = views; }, [views]);
@@ -113,6 +121,29 @@ export default function FarmScene({ views, events, onSelect, busyRef, clockRef, 
     [onSelect],
   );
 
+  const onParcelPlaced = useCallback(() => {
+    parcelRef.current = { phase: 'idle', t0: performance.now() };
+    deliveryRef.current?.onPlaced();
+  }, []);
+  const onParcelPick = useCallback(() => farmer.current?.walkTo(DOOR_STAND), []);
+
+  // Reward: only when the farmer stands next to the parcel. The server decides and confirms; visuals follow it.
+  useFrame(() => {
+    const c = collecting.current;
+    if (parcelRef.current?.phase !== 'idle' || c.busy || performance.now() < c.retryAt) return;
+    const p = posRef.current;
+    if (Math.hypot(p.x - PARCEL_XZ[0], p.z - PARCEL_XZ[1]) > COLLECT_RANGE) return;
+    c.busy = true;
+    deliveryRef.current.collect().then((r) => {
+      c.busy = false;
+      if (r.ok) parcelRef.current = r.granted ? { phase: 'collected', t0: performance.now() } : null;
+      else c.retryAt = performance.now() + 3000; // the delivery stays pending on the server; try again shortly
+    });
+  });
+
+  // The market opens only once the farmer has walked up to the stall (a new click elsewhere cancels the visit).
+  const onKioskOpen = useCallback(() => { farmer.current?.visit(KIOSK_STAND, KIOSK_FACE, () => onKiosk?.()); }, [onKiosk]);
+
   const onGround = useCallback((e) => {
     e.stopPropagation();
     farmer.current?.walkTo([e.point.x, e.point.z]);
@@ -127,7 +158,8 @@ export default function FarmScene({ views, events, onSelect, busyRef, clockRef, 
           popRef.current[result.plotIndex] = now;
         } else if (result.action === 'harvest') {
           const [x, y, z] = plotPosition(result.plotIndex);
-          flightsRef.current.push({ cropId: result.cropId, from: [x, y + 0.5, z], t0: now });
+          const crops = Math.min(5, Number.isInteger(result.yield) && result.yield > 0 ? result.yield : 1); // one flying crop per crop gained
+          for (let i = 0; i < crops; i += 1) flightsRef.current.push({ cropId: result.cropId, from: [x, y + 0.5, z], t0: now + i * 130 });
           const { camera, size } = get();
           const p = new THREE.Vector3(x, y + 0.8, z).project(camera);
           onFloat(
@@ -148,6 +180,7 @@ export default function FarmScene({ views, events, onSelect, busyRef, clockRef, 
       <World onGround={onGround} />
       <Farmhouse position={[HOUSE.x, 0.4, HOUSE.z]} rotation={[0, HOUSE.rot, 0]} />
       <Barn position={[BARN.x, 0.4, BARN.z]} rotation={[0, BARN.rot, 0]} />
+      <Kiosk position={[KIOSK.x, 0.4, KIOSK.z]} rotation={[0, KIOSK.rot, 0]} onOpen={onKioskOpen} />
       <Windmill position={[MILL.x, 0.4, MILL.z]} rotation={[0, MILL.rot, 0]} />
       <Trees />
       <Fences />
@@ -155,6 +188,10 @@ export default function FarmScene({ views, events, onSelect, busyRef, clockRef, 
       <FlyingCrops flightsRef={flightsRef} landRef={landRef} />
       <Clouds focusRef={focusRef} />
       <Farmer apiRef={farmer} posRef={posRef} onArrive={onArrive} />
+      <DoorParcel parcelRef={parcelRef} onPick={onParcelPick} />
+      {delivery?.visit && (
+        <Courier key={delivery.visit.key} onPlaced={onParcelPlaced} onDone={delivery.onDone} bubbleRef={bubbleRef} />
+      )}
       {views.map((view) => (
         <Plot key={view.index} view={view} onSelect={onPlot} busyRef={busyRef} clockRef={clockRef} popRef={popRef} />
       ))}

@@ -16,7 +16,7 @@ describe('starting state', () => {
     expect(res.body.farm.plots).toHaveLength(9);
     expect(res.body.farm.plots.every((p: { state: string }) => p.state === 'empty')).toBe(true);
     expect(res.body.inventory.seeds).toMatchObject({ carrot: 3, tomato: 0, pumpkin: 0 });
-    expect(res.body.catalog).toHaveLength(3);
+    expect(res.body.catalog).toHaveLength(4);
   });
 });
 
@@ -230,5 +230,54 @@ describe('persistence', () => {
     expect(after.inventory).toEqual(before.inventory);
     expect(after.farm.plots[2]).toMatchObject({ cropId: 'carrot', plantedAt: before.farm.plots[2].plantedAt, readyAt: before.farm.plots[2].readyAt, state: 'ready' });
     expect((await again.post('/api/game/plots/2/harvest')).status).toBe(200);
+  });
+});
+
+describe('random harvest yield', () => {
+  const harvestWith = async (yields: number[]) => {
+    const queue = [...yields];
+    const ctx = makeApp({ rollYield: () => queue.shift() ?? 1 });
+    const { agent, user } = await signup(ctx.app, 'yielder');
+    const go = async () => {
+      ctx.db.prepare("UPDATE farm_plots SET crop_id = 'carrot', planted_at = 1, ready_at = 2 WHERE user_id = ? AND plot_index = 0").run(user.id);
+      return agent.post('/api/game/plots/0/harvest');
+    };
+    return { ...ctx, agent, user, go };
+  };
+
+  it('adds the rolled number of crops, reports it, and keeps XP per harvest', async () => {
+    const { go, db } = await harvestWith([4, 1, 5]);
+    try {
+      const a = await go();
+      expect(a.body).toMatchObject({ yield: 4, xpGained: 8 });
+      expect(a.body.state.inventory.crops.carrot).toBe(4);
+      expect((await go()).body.yield).toBe(1);
+      const c = await go();
+      expect(c.body.state.inventory.crops.carrot).toBe(10);
+      expect(c.body.state.player.xp).toBe(24);
+      // quest progress counts the crops collected (capped at the target)
+      expect(c.body.state.personalQuests[0].objectives[0].progress).toBe(10);
+    } finally { db.close(); }
+  });
+
+  it('really yields 1 to 5 with the default random roll, and every value occurs', async () => {
+    // makeApp injects a fixed yield, so build an app with the production roller instead.
+    const { createApp } = await import('../src/app.js');
+    const { openDb } = await import('../src/db/connection.js');
+    const { migrate } = await import('../src/db/migrate.js');
+    const { loadConfig } = await import('../src/config.js');
+    const db = openDb(':memory:'); migrate(db);
+    const app = createApp({ config: loadConfig({ RATE_LIMIT: 'false' } as NodeJS.ProcessEnv), db });
+    try {
+      const { agent, user } = await signup(app, 'rolls');
+      const seen = new Set<number>();
+      for (let i = 0; i < 120; i++) {
+        db.prepare("UPDATE farm_plots SET crop_id = 'carrot', planted_at = 1, ready_at = 2 WHERE user_id = ? AND plot_index = 0").run(user.id);
+        const n = (await agent.post('/api/game/plots/0/harvest')).body.yield as number;
+        expect(Number.isInteger(n) && n >= 1 && n <= 5).toBe(true);
+        seen.add(n);
+      }
+      expect([...seen].sort()).toEqual([1, 2, 3, 4, 5]);
+    } finally { db.close(); }
   });
 });

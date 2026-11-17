@@ -6,18 +6,19 @@ import { loadConfig, type Config } from '../src/config.js';
 import { openDb } from '../src/db/connection.js';
 import { migrate } from '../src/db/migrate.js';
 import { createApp } from '../src/app.js';
+import type { CircleLookup } from '../src/market/social.js';
 
 export function makeClock(start = 1_700_000_000_000) {
   const clock = { t: start, now: () => clock.t, advance: (ms: number) => (clock.t += ms) };
   return clock;
 }
 
-export function makeApp(opts: { env?: Record<string, string>; dbFile?: string; clock?: ReturnType<typeof makeClock> } = {}) {
+export function makeApp(opts: { env?: Record<string, string>; dbFile?: string; clock?: ReturnType<typeof makeClock>; rollYield?: () => number; circle?: CircleLookup } = {}) {
   const config: Config = loadConfig({ RATE_LIMIT: 'false', ...opts.env } as NodeJS.ProcessEnv);
   const db = openDb(opts.dbFile ?? ':memory:');
   migrate(db);
   const clock = opts.clock ?? makeClock();
-  const app = createApp({ config, db, now: clock.now });
+  const app = createApp({ config, db, now: clock.now, rollYield: opts.rollYield ?? (() => 1), circle: opts.circle });
   return { app, db, config, clock };
 }
 

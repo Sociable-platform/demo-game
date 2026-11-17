@@ -7,7 +7,11 @@ import Header from './Header.jsx';
 import Farm from './Farm.jsx';
 import Shop from './Shop.jsx';
 import Barn from './Barn.jsx';
+import { useDelivery } from '../game/useDelivery.js';
+import DeliveryNotice from './DeliveryNotice.jsx';
 import ClanQuestPanel from './ClanQuestPanel.jsx';
+import PersonalQuestsPanel from './PersonalQuestsPanel.jsx';
+import KioskModal from './KioskModal.jsx';
 import Tutorial from './Tutorial.jsx';
 import AccountSettingsDialog from './AccountSettingsDialog.jsx';
 
@@ -28,10 +32,14 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
   const { state, now, busy } = game;
   const [panel, setPanel] = useState(null); // 'shop' | 'barn' | null: one drawer at a time, closed by default
   const [use3d, setUse3d] = useState(prefers3d);
+  const [kioskOpen, setKioskOpen] = useState(false);
+  const openKiosk = useCallback(() => setKioskOpen(true), []);
+  const closeKiosk = useCallback(() => setKioskOpen(false), []);
   const drawerRef = useRef(null);
   const togglePanel = useCallback((id) => setPanel((p) => (p === id ? null : id)), []);
   useEffect(() => { if (panel) drawerRef.current?.focus(); }, [panel]);
   const fail3d = useCallback(() => setUse3d(false), []);
+  const delivery = useDelivery({ game, use3d, ready: Boolean(state), onSessionExpired });
   const [selectedSeed, setSelectedSeed] = useState(null);
   const [showTutorial, setShowTutorial] = useState(() => !hasSeenTutorial(user.id));
   const [showAccountSettings, setShowAccountSettings] = useState(false);
@@ -93,6 +101,8 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
                 onFail3d={fail3d}
                 panel={panel}
                 onTogglePanel={togglePanel}
+                delivery={delivery.scene}
+                onOpenKiosk={openKiosk}
               />
             </div>
           </main>
@@ -104,19 +114,26 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
               tabIndex={-1}
               className="drawer"
               role="dialog"
-              aria-label={{ shop: 'Seed Shop', barn: 'Barn', quest: 'Clan Quest' }[panel]}
+              aria-label={{ shop: 'Seed Shop', barn: 'Barn', quest: 'Quests' }[panel]}
               onKeyDown={(e) => { if (e.key === 'Escape') setPanel(null); }}
             >
               <button type="button" className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
               {panel === 'shop' && <Shop state={state} busy={busy} onBuy={game.buy} />}
               {panel === 'barn' && <Barn state={state} busy={busy} onSell={game.sell} />}
-              {panel === 'quest' && <ClanQuestPanel state={state} game={game} onSessionExpired={onSessionExpired} />}
+              {panel === 'quest' && (
+                <>
+                  <PersonalQuestsPanel state={state} game={game} />
+                  <ClanQuestPanel state={state} game={game} onSessionExpired={onSessionExpired} />
+                </>
+              )}
             </aside>
           )}
         </>
       ) : (
         <p className="loading">Loading your farm…</p>
       )}
+      {state && <DeliveryNotice message={delivery.message} waiting={delivery.waiting} onCollect={delivery.collect} />}
+      {kioskOpen && state && <KioskModal state={state} game={game} onClose={closeKiosk} onSessionExpired={onSessionExpired} />}
       {showTutorial && state && <Tutorial onClose={closeTutorial} />}
       {showAccountSettings && <AccountSettingsDialog username={user.username} onClose={() => setShowAccountSettings(false)} onDeleteAccount={onDeleteAccount} />}
     </div>

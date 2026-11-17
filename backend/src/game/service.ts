@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import type { Db } from '../db/connection.js';
 import { AppError } from '../http/errors.js';
 import {
@@ -6,12 +7,14 @@ import {
   GRID_COLS,
   GRID_ROWS,
   GRID_SIZE,
+  HARVEST_YIELD,
   STARTING_COINS,
   STARTING_SEEDS,
   levelFromXp,
   levelProgress,
   type Crop,
 } from './catalog.js';
+import { activateEligible, nextActivatable, readQuests, recordHarvest } from '../personal-quests/progress.js';
 
 /**
  * Authoritative game logic. Identity always arrives as `userId` from the verified session;
@@ -22,7 +25,12 @@ import {
  * (enough coins, enough items, plot still has a ripe crop). If a precondition fails we throw and the
  * whole transaction rolls back, so a repeated or parallel request can never apply twice.
  */
-export function createGameService(db: Db, now: () => number) {
+export function createGameService(
+  db: Db,
+  now: () => number,
+  // How many crops one harvest yields. Injectable so tests can be deterministic; production is uniform 1..5.
+  rollYield: () => number = () => randomInt(HARVEST_YIELD.min, HARVEST_YIELD.max + 1),
+) {
   const tx = <A extends unknown[], R>(fn: (...args: A) => R) => {
     const wrapped = db.transaction(fn);
     return (...args: A): R => wrapped.immediate(...args);
@@ -111,8 +119,11 @@ export function createGameService(db: Db, now: () => number) {
       farm: { rows: GRID_ROWS, cols: GRID_COLS, plots },
       inventory: { seeds, crops },
       catalog: CROP_LIST,
+      personalQuests: readQuests(db, userId, levelFromXp(p.xp)),
     };
   }
+
+  const activateQuests = tx((userId: string) => activateEligible(db, userId, levelFromXp(getXp(userId)), now()));
 
   return {
     /** Create the starting farm for a new user. Must be called inside the caller's transaction. */
@@ -125,9 +136,14 @@ export function createGameService(db: Db, now: () => number) {
       const plot = db.prepare('INSERT INTO farm_plots (user_id, plot_index) VALUES (?, ?)');
       for (let i = 0; i < GRID_SIZE; i++) plot.run(userId, i);
       for (const [cropId, qty] of Object.entries(STARTING_SEEDS)) addInventory(userId, 'seed', cropId, qty);
+      activateEligible(db, userId, 1, now()); // the first personal quest is active from the start
     },
 
-    getState: (userId: string) => readState(userId),
+    getState: (userId: string) => {
+      // Activates the next personal quest for players who have none active yet (e.g. accounts from before quests).
+      if (nextActivatable(db, userId, levelFromXp(getXp(userId)))) activateQuests(userId);
+      return readState(userId);
+    },
 
     buySeeds: tx((userId: string, cropId: string, quantity: number) => {
       const crop = requireCrop(cropId);
@@ -188,14 +204,19 @@ export function createGameService(db: Db, now: () => number) {
 
       const xpBefore = getXp(userId);
       db.prepare('UPDATE players SET xp = xp + ? WHERE user_id = ?').run(crop.xpReward, userId);
-      addInventory(userId, 'crop', cropId, 1);
+      const amount = rollYield();
+      if (!Number.isInteger(amount) || amount < HARVEST_YIELD.min || amount > HARVEST_YIELD.max) throw new Error('invalid harvest yield');
+      addInventory(userId, 'crop', cropId, amount);
+      recordHarvest(db, userId, cropId, amount); // counts only for quests that were already active before this harvest
       touch(userId);
       const levelBefore = levelFromXp(xpBefore);
       const levelAfter = levelFromXp(xpBefore + crop.xpReward);
+      activateEligible(db, userId, levelAfter, t); // a quest unlocked by this level-up starts counting from the next harvest
       return {
         action: 'harvest',
         cropId,
         plotIndex,
+        yield: amount,
         xpGained: crop.xpReward,
         leveledUp: levelAfter > levelBefore,
         newLevel: levelAfter,

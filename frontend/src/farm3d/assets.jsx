@@ -75,6 +75,17 @@ function createAssets() {
     [[0.3, 0.46, 0.14], [-0.3, 0.62, 0.12], [0.14, 0.42, -0.3], [-0.06, 0.82, 0.26]].map((p) => [sphere, p, [0, 0, 0], [0.17, 0.17, 0.17]]),
   );
 
+  const potatoFoliage = merged([
+    [lowSphere, [0, 0.2, 0], [0, 0, 0], [0.48, 0.17, 0.42]],
+    [lowSphere, [0.24, 0.32, 0.06], [0, 0.6, 0.3], [0.3, 0.13, 0.24]],
+    [lowSphere, [-0.26, 0.36, -0.04], [0, -0.5, -0.3], [0.3, 0.13, 0.24]],
+    [lowSphere, [0.02, 0.5, -0.2], [0.3, 0.9, 0.2], [0.28, 0.12, 0.22]],
+    [lowSphere, [-0.08, 0.6, 0.18], [0, 0.2, 0.1], [0.26, 0.12, 0.2]],
+  ]);
+  const potatoTubers = merged(
+    [[0.34, 0.04, 0.2], [-0.32, 0.04, 0.26], [0.12, 0.04, -0.36], [-0.14, 0.05, 0.4], [0.44, 0.04, -0.12]].map((p, i) => [sphere, p, [0, i, 0.3], [0.17, 0.11, 0.13]]),
+  );
+
   const pumpkinBody = merged([
     [sphere, [0, 0.38, 0], [0, 0, 0], [0.5, 0.46, 0.6]],
     [sphere, [0, 0.38, 0], [0, Math.PI / 3, 0], [0.5, 0.46, 0.6]],
@@ -102,7 +113,7 @@ function createAssets() {
   const geo = {
     box, sphere, lowSphere, cone6, cone8, cyl6, cyl10, taper8, taper10, roof, plane, disc,
     oct: new THREE.OctahedronGeometry(1, 0), ico: new THREE.IcosahedronGeometry(1, 0),
-    carrotLeaves, carrotRoots, tomatoFoliage, tomatoFruits, pumpkinBody, pumpkinStem, pumpkinLeaves, blades, ridge,
+    carrotLeaves, carrotRoots, tomatoFoliage, tomatoFruits, potatoFoliage, potatoTubers, pumpkinBody, pumpkinStem, pumpkinLeaves, blades, ridge,
     basketHandle: new THREE.TorusGeometry(0.4, 0.045, 5, 10, Math.PI),
   };
 
@@ -116,8 +127,10 @@ function createAssets() {
     leaf: lit('#5faa43'), leafDark: lit('#4a9136'), leafLight: lit('#7cc157'), trunk: lit('#8a5a33'),
     cloud: lit('#ffffff', { emissive: '#ffffff', emissiveIntensity: 0.28, transparent: true, opacity: 0.95 }),
     carrot: lit('#f28c28'), tomatoRed: lit('#e5493a', { roughness: 0.55 }), tomatoGreen: lit('#8cc152'),
+    potato: lit('#c99a5b'), potatoPale: lit('#e3cb92'),
     pumpkin: lit('#f58a20'), pumpkinGreen: lit('#9bbd4a'), stem: lit('#4f8f3a'),
     path: lit('#d9c08e'), skin: lit('#f2c9a0'), shirt: lit('#4f86c6'), pants: lit('#7a5a3a'), hat: lit('#e8c46b'), hatBand: lit('#b9473c'),
+    gold: lit('#f1c040', { roughness: 0.5 }), courier: lit('#d9683a'), courierDark: lit('#a84a28'), parcel: lit('#d9a867'), ribbon: lit('#c8473a'),
     blades: lit('#f6e7c8'), basket: lit('#c8924f'), hay: lit('#e9c66a'),
     highlight: new THREE.MeshBasicMaterial({ color: '#fff3a0', transparent: true, opacity: 0.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }),
     glow: new THREE.MeshBasicMaterial({ color: '#ffd95a', transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending }),
