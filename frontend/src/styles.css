@@ -441,3 +441,30 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
 @media (max-width: 480px) { .kiosk-choices, .kiosk-numbers { grid-template-columns: 1fr; } .kiosk-offer { grid-template-columns: auto 1fr auto; } .kiosk-offer .btn { grid-column: 1 / -1; } }
 .kiosk-home .kiosk-note { margin-top: 18px; }
 .kiosk-link { padding: 0; border: 0; background: none; color: #1f6b3a; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+
+/* ---------- kiosk redesign: market stall ---------- */
+.kiosk-dialog { padding: 0 20px 20px; border-radius: 24px; border-color: #e6cf9d; box-shadow: 0 18px 40px rgba(60, 40, 15, 0.35); }
+.kiosk-awning { height: 30px; margin: 0 -20px 14px; background:
+  radial-gradient(circle at 20px 100%, #fffbf2 0 9px, transparent 10px) 0 100% / 40px 12px repeat-x,
+  repeating-linear-gradient(90deg, #d9534a 0 40px, #fff4dc 40px 80px); border-bottom: 3px solid #b5392f; }
+.kiosk-top { margin-bottom: 6px; }
+.kiosk-top h2 { font-size: 1.6rem; letter-spacing: 0.2px; }
+.kiosk-lead { margin: 0 0 16px; color: var(--ink-soft); font-weight: 700; }
+.kiosk-home .kiosk-choices { gap: 14px; }
+.kiosk-card { position: relative; display: grid; justify-items: center; align-content: start; gap: 6px; padding: 18px 12px 14px; border-radius: 20px; border: 2px solid var(--tan-dark); background: linear-gradient(180deg, #fffdf6, #fdeec8); color: var(--ink); font: inherit; cursor: pointer; box-shadow: 0 5px 0 var(--tan-dark); transition: transform .12s ease, box-shadow .12s ease; }
+.kiosk-card:hover { transform: translateY(-2px); box-shadow: 0 7px 0 var(--tan-dark); }
+.kiosk-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--tan-dark); }
+.kiosk-card:focus-visible { outline: 3px solid #1f6b3a; outline-offset: 2px; }
+.kiosk-card-sell { border-color: #e0a92a; box-shadow: 0 5px 0 #e0a92a; background: linear-gradient(180deg, #fffbe6, #fff0b8); }
+.kiosk-card-sell:hover { box-shadow: 0 7px 0 #e0a92a; }
+.kiosk-card-sell:active { box-shadow: 0 2px 0 #e0a92a; }
+.kiosk-card-buy { border-color: #6fae4f; box-shadow: 0 5px 0 #4c8a33; background: linear-gradient(180deg, #f6fcec, #dff2c6); }
+.kiosk-card-buy:hover { box-shadow: 0 7px 0 #4c8a33; }
+.kiosk-card-buy:active { box-shadow: 0 2px 0 #4c8a33; }
+.kiosk-card-icon { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; background: #fff; border: 2px solid rgba(74, 47, 23, 0.15); }
+.kiosk-card-title { font-size: 1.15rem; font-weight: 800; }
+.kiosk-card-sub { font-size: 0.82rem; color: var(--ink-soft); font-weight: 700; line-height: 1.25; min-height: 2.1em; }
+.kiosk-card-badge { margin-top: 4px; padding: 3px 12px; border-radius: 999px; background: #fff; border: 2px solid rgba(74, 47, 23, 0.15); font-size: 0.8rem; font-weight: 800; }
+.kiosk-wallet { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 0; padding: 10px 14px; border-radius: 14px; background: #f3ead2; font-weight: 700; color: var(--ink-soft); }
+.kiosk-wallet strong { color: var(--ink); font-size: 1.05rem; }
+@media (prefers-reduced-motion: reduce) { .kiosk-card { transition: none; } }

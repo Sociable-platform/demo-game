@@ -59,6 +59,7 @@ export default function KioskModal({ state, game, onClose, onSessionExpired }) {
   return (
     <dialog ref={dialog} className="card kiosk-dialog" aria-labelledby="kiosk-title"
       onCancel={(e) => { e.preventDefault(); if (view === 'home') onClose(); else back(); }}>
+      <div className="kiosk-awning" aria-hidden="true" />
       <div className="kiosk-top">
         {view !== 'home' && <button type="button" className="btn btn-small" onClick={back}>← Back</button>}
         <h2 id="kiosk-title">{view === 'sell' ? 'Sell Product' : view === 'buy' ? 'Buy Product' : 'Kiosk'}</h2>
@@ -67,12 +68,22 @@ export default function KioskModal({ state, game, onClose, onSessionExpired }) {
 
       {view === 'home' && (
         <div className="kiosk-home">
-          <p className="hint">Trade your harvest with your clan and your friends.</p>
+          <p className="kiosk-lead">Swap your harvest with your clan and friends.</p>
           <div className="kiosk-choices">
-            <button type="button" className="btn btn-primary kiosk-choice" onClick={() => setView('sell')}>Sell Product</button>
-            <button type="button" className="btn btn-primary kiosk-choice" onClick={() => setView('buy')}>Buy Product</button>
+            <button type="button" className="kiosk-card kiosk-card-sell" onClick={() => setView('sell')}>
+              <span className="kiosk-card-icon" aria-hidden="true"><Coin size={34} /></span>
+              <span className="kiosk-card-title">Sell Product</span>
+              <span className="kiosk-card-sub">Post your crops for a price you choose</span>
+              <span className="kiosk-card-badge">{market ? `${market.mine.length} open ${market.mine.length === 1 ? 'offer' : 'offers'}` : '…'}</span>
+            </button>
+            <button type="button" className="kiosk-card kiosk-card-buy" onClick={() => setView('buy')}>
+              <span className="kiosk-card-icon" aria-hidden="true"><CropIcon cropId="carrot" size={38} /></span>
+              <span className="kiosk-card-title">Buy Product</span>
+              <span className="kiosk-card-sub">Browse offers from other players</span>
+              <span className="kiosk-card-badge">{market ? `${market.offers.length} for you` : '…'}</span>
+            </button>
           </div>
-          {market && <p className="hint kiosk-note">{market.mine.length} of your offers open · {market.offers.length} offers for you</p>}
+          <p className="kiosk-wallet">Your purse <strong className="kiosk-price"><Coin size={18} /> {player.coins}</strong></p>
           {loadError && <p className="kiosk-error" role="alert">{loadError} <button type="button" className="btn btn-small" onClick={load}>Try again</button></p>}
         </div>
       )}
