@@ -27,6 +27,31 @@ The database file is created automatically at `backend/data/harvest.db` and migr
 
 Optional: `cp .env.example .env` to change ports or settings. Farming needs no secrets. Clan authentication optionally needs a server-only API key.
 
+### Running it next to Studio (port 5174)
+
+On its own the game uses port 5173. So does Studio (clan-frontend), and the local clan-backend only
+lets a game call Social and Realtime from `http://localhost:5174` (`SOCIAL_CORS_ORIGINS` and
+`REALTIME_CORS_ORIGINS` in its `.env.example`). To try the clan widget locally with everything
+running, give Studio 5173 and run the game on 5174:
+
+1. In `.env`, let the game's own server accept the new address:
+
+   ```dotenv
+   APP_ORIGIN=http://localhost:5174,http://127.0.0.1:5174,http://localhost:3001,http://127.0.0.1:3001
+   ```
+
+2. Start the two halves in two terminals, the web one on 5174:
+
+   ```bash
+   npm run dev:api
+   npm run dev -w frontend -- --port 5174
+   ```
+
+3. Open **http://localhost:5174**.
+
+If Studio is already on 5173 and you run plain `npm run dev`, Vite picks 5174 by itself, but the
+game's server still expects 5173 until step 1 is done, so its own requests are refused.
+
 ### Windows PowerShell
 
 ```powershell
