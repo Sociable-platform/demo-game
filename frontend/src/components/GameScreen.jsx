@@ -53,12 +53,12 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
     }
   }, [user.id]);
 
-  // Keep a sensible seed selected: the current one if we still have it, otherwise the first one we own.
+  // Keep a sensible crop selected for planting: the current one if we still have it, otherwise the first one we own.
   useEffect(() => {
     if (!state) return;
-    const seeds = state.inventory.seeds;
-    if (selectedSeed && seeds[selectedSeed] > 0) return;
-    const firstOwned = state.catalog.find((c) => seeds[c.id] > 0);
+    const owned = state.inventory.crops;
+    if (selectedSeed && owned[selectedSeed] > 0) return;
+    const firstOwned = state.catalog.find((c) => owned[c.id] > 0);
     if (firstOwned) setSelectedSeed(firstOwned.id);
     else if (!selectedSeed) setSelectedSeed(state.catalog[0].id);
   }, [state, selectedSeed]);
@@ -72,9 +72,9 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
     }
     // Empty plot
     const crop = state.catalog.find((c) => c.id === selectedSeed);
-    if (!crop) return notify('info', 'Choose a seed first.');
-    if ((state.inventory.seeds[crop.id] ?? 0) < 1) {
-      return notify('error', `You're out of ${crop.name} seeds. Buy more in the Seed Shop.`);
+    if (!crop) return notify('info', 'Choose a crop to plant first.');
+    if ((state.inventory.crops[crop.id] ?? 0) < 1) {
+      return notify('error', `You have no ${crop.name} to plant. Buy one in the Shop or harvest more.`);
     }
     return game.plant(plot.index, crop.id);
   };
@@ -114,7 +114,7 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
               tabIndex={-1}
               className="drawer"
               role="dialog"
-              aria-label={{ shop: 'Seed Shop', barn: 'Barn', quest: 'Quests' }[panel]}
+              aria-label={{ shop: 'Shop', barn: 'Barn', quest: 'Quests' }[panel]}
               onKeyDown={(e) => { if (e.key === 'Escape') setPanel(null); }}
             >
               <button type="button" className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>

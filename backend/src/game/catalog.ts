@@ -3,7 +3,7 @@
 export interface Crop {
   id: 'carrot' | 'tomato' | 'potato' | 'pumpkin';
   name: string;
-  seedPrice: number; // coins to buy one seed
+  buyPrice: number; // coins to buy one of this crop in the shop (always above sellPrice, so buying and re-selling never profits)
   sellPrice: number; // coins when selling one harvested crop
   growthSeconds: number; // short on purpose, for live demos
   xpReward: number; // XP per harvest
@@ -12,10 +12,10 @@ export interface Crop {
 }
 
 export const CROP_LIST: readonly Crop[] = [
-  { id: 'carrot', name: 'Carrot', seedPrice: 10, sellPrice: 18, growthSeconds: 15, xpReward: 8, unlockLevel: 1, marketPrice: 9 },
-  { id: 'tomato', name: 'Tomato', seedPrice: 25, sellPrice: 55, growthSeconds: 30, xpReward: 20, unlockLevel: 1, marketPrice: 28 },
-  { id: 'potato', name: 'Potato', seedPrice: 15, sellPrice: 32, growthSeconds: 20, xpReward: 12, unlockLevel: 2, marketPrice: 16 },
-  { id: 'pumpkin', name: 'Pumpkin', seedPrice: 60, sellPrice: 140, growthSeconds: 60, xpReward: 50, unlockLevel: 2, marketPrice: 70 },
+  { id: 'carrot', name: 'Carrot', buyPrice: 22, sellPrice: 18, growthSeconds: 15, xpReward: 8, unlockLevel: 1, marketPrice: 9 },
+  { id: 'tomato', name: 'Tomato', buyPrice: 66, sellPrice: 55, growthSeconds: 30, xpReward: 20, unlockLevel: 1, marketPrice: 28 },
+  { id: 'potato', name: 'Potato', buyPrice: 38, sellPrice: 32, growthSeconds: 20, xpReward: 12, unlockLevel: 2, marketPrice: 16 },
+  { id: 'pumpkin', name: 'Pumpkin', buyPrice: 168, sellPrice: 140, growthSeconds: 60, xpReward: 50, unlockLevel: 2, marketPrice: 70 },
 ];
 
 export const CROPS: Readonly<Record<string, Crop>> = Object.fromEntries(CROP_LIST.map((c) => [c.id, c]));
@@ -28,7 +28,8 @@ export const GRID_COLS = 3;
 export const GRID_SIZE = GRID_ROWS * GRID_COLS;
 
 export const STARTING_COINS = 50;
-export const STARTING_SEEDS: Readonly<Record<string, number>> = { carrot: 3 };
+/** You plant a crop to grow more of it (like a carrot in Minecraft): there are no separate seeds. */
+export const STARTING_CROPS: Readonly<Record<string, number>> = { carrot: 3 };
 export const MAX_BUY_QUANTITY = 99;
 
 /** One harvest yields a random whole number of crops in this range (inclusive). XP is still per harvest. */

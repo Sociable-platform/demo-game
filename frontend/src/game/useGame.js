@@ -100,7 +100,7 @@ export function useGame({ notify, onSessionExpired, onActionResult }) {
     buy: (cropId, quantity) =>
       run(
         () => api.buy(cropId, quantity),
-        (r) => notify('success', `Bought ${plural(r.quantity, cropName(cropId) + ' seed')} for ${r.coinsSpent} coins.`),
+        (r) => notify('success', `Bought ${r.quantity} ${cropName(cropId)}${r.quantity === 1 ? '' : 's'} for ${r.coinsSpent} coins.`),
       ),
     plant: (plotIndex, cropId) =>
       run(

@@ -9,7 +9,7 @@ import {
   GRID_SIZE,
   HARVEST_YIELD,
   STARTING_COINS,
-  STARTING_SEEDS,
+  STARTING_CROPS,
   levelFromXp,
   levelProgress,
   type Crop,
@@ -60,21 +60,21 @@ export function createGameService(
     }
   };
 
-  const addInventory = (userId: string, kind: 'seed' | 'crop', cropId: string, qty: number) => {
+  const addInventory = (userId: string, cropId: string, qty: number) => {
     db.prepare(
-      `INSERT INTO inventory (user_id, kind, crop_id, quantity) VALUES (?, ?, ?, ?)
+      `INSERT INTO inventory (user_id, kind, crop_id, quantity) VALUES (?, 'crop', ?, ?)
        ON CONFLICT (user_id, kind, crop_id) DO UPDATE SET quantity = quantity + excluded.quantity`,
-    ).run(userId, kind, cropId, qty);
+    ).run(userId, cropId, qty);
   };
 
-  /** Atomically takes items out of the inventory; fails (and the caller rolls back) if there are not enough. */
-  const takeInventory = (userId: string, kind: 'seed' | 'crop', cropId: string, qty: number): boolean =>
+  /** Atomically takes crops out of the inventory; fails (and the caller rolls back) if there are not enough. */
+  const takeInventory = (userId: string, cropId: string, qty: number): boolean =>
     db
       .prepare(
         `UPDATE inventory SET quantity = quantity - ?
-          WHERE user_id = ? AND kind = ? AND crop_id = ? AND quantity >= ?`,
+          WHERE user_id = ? AND kind = 'crop' AND crop_id = ? AND quantity >= ?`,
       )
-      .run(qty, userId, kind, cropId, qty).changes === 1;
+      .run(qty, userId, cropId, qty).changes === 1;
 
   const touch = (userId: string) =>
     db.prepare('UPDATE players SET updated_at = ? WHERE user_id = ?').run(now(), userId);
@@ -101,23 +101,21 @@ export function createGameService(
       readyAt: r.ready_at,
     }));
 
-    const seeds: Record<string, number> = {};
     const crops: Record<string, number> = {};
     for (const c of CROP_LIST) {
-      seeds[c.id] = 0;
       crops[c.id] = 0;
     }
     for (const r of db
       .prepare('SELECT kind, crop_id, quantity FROM inventory WHERE user_id = ?')
-      .all(userId) as { kind: 'seed' | 'crop'; crop_id: string; quantity: number }[]) {
-      (r.kind === 'seed' ? seeds : crops)[r.crop_id] = r.quantity;
+      .all(userId) as { kind: string; crop_id: string; quantity: number }[]) {
+      if (r.kind === 'crop') crops[r.crop_id] = r.quantity;
     }
 
     return {
       serverTime: t,
       player: { id: p.id, username: p.username, coins: p.coins, xp: p.xp, ...levelProgress(p.xp) },
       farm: { rows: GRID_ROWS, cols: GRID_COLS, plots },
-      inventory: { seeds, crops },
+      inventory: { crops },
       catalog: CROP_LIST,
       personalQuests: readQuests(db, userId, levelFromXp(p.xp)),
     };
@@ -135,7 +133,7 @@ export function createGameService(
       );
       const plot = db.prepare('INSERT INTO farm_plots (user_id, plot_index) VALUES (?, ?)');
       for (let i = 0; i < GRID_SIZE; i++) plot.run(userId, i);
-      for (const [cropId, qty] of Object.entries(STARTING_SEEDS)) addInventory(userId, 'seed', cropId, qty);
+      for (const [cropId, qty] of Object.entries(STARTING_CROPS)) addInventory(userId, cropId, qty);
       activateEligible(db, userId, 1, now()); // the first personal quest is active from the start
     },
 
@@ -145,17 +143,17 @@ export function createGameService(
       return readState(userId);
     },
 
-    buySeeds: tx((userId: string, cropId: string, quantity: number) => {
+    buyCrops: tx((userId: string, cropId: string, quantity: number) => {
       const crop = requireCrop(cropId);
       assertUnlocked(userId, crop);
-      const cost = crop.seedPrice * quantity;
+      const cost = crop.buyPrice * quantity;
       const paid = db
         .prepare('UPDATE players SET coins = coins - ? WHERE user_id = ? AND coins >= ?')
         .run(cost, userId, cost);
       if (paid.changes !== 1) {
         throw new AppError(409, 'insufficient_coins', `You need ${cost} coins for that, but you don't have enough.`);
       }
-      addInventory(userId, 'seed', cropId, quantity);
+      addInventory(userId, cropId, quantity);
       touch(userId);
       return { action: 'buy', cropId, quantity, coinsSpent: cost, state: readState(userId) };
     }),
@@ -164,8 +162,8 @@ export function createGameService(
       assertPlot(plotIndex);
       const crop = requireCrop(cropId);
       assertUnlocked(userId, crop);
-      if (!takeInventory(userId, 'seed', cropId, 1)) {
-        throw new AppError(409, 'insufficient_seeds', `You have no ${crop.name} seeds. Buy some in the shop.`);
+      if (!takeInventory(userId, cropId, 1)) {
+        throw new AppError(409, 'insufficient_crops', `You have no ${crop.name} to plant. Buy one in the shop or harvest more.`);
       }
       const t = now();
       const planted = db
@@ -206,7 +204,7 @@ export function createGameService(
       db.prepare('UPDATE players SET xp = xp + ? WHERE user_id = ?').run(crop.xpReward, userId);
       const amount = rollYield();
       if (!Number.isInteger(amount) || amount < HARVEST_YIELD.min || amount > HARVEST_YIELD.max) throw new Error('invalid harvest yield');
-      addInventory(userId, 'crop', cropId, amount);
+      addInventory(userId, cropId, amount);
       recordHarvest(db, userId, cropId, amount); // counts only for quests that were already active before this harvest
       touch(userId);
       const levelBefore = levelFromXp(xpBefore);
@@ -236,7 +234,7 @@ export function createGameService(
       } else {
         qty = quantity;
       }
-      if (!takeInventory(userId, 'crop', cropId, qty)) {
+      if (!takeInventory(userId, cropId, qty)) {
         throw new AppError(409, 'insufficient_crops', `You don't have ${qty} ${crop.name} to sell.`);
       }
       const earned = crop.sellPrice * qty;

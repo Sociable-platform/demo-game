@@ -31,7 +31,7 @@ describe('normalized username migration', () => {
     db.prepare('UPDATE users SET username = ? WHERE id = ?').run('\t NuRaY\u00a0',user.id);
     const hash = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(user.id);
     const before = (await agent.get('/api/game/state')).body;
-    expect(migrate(db)).toEqual(['002_unique_normalized_usernames.sql', '003_clan_quest.sql', '004_deliveries.sql', '006_market.sql', '007_market_audiences.sql']);
+    expect(migrate(db)).toEqual(['002_unique_normalized_usernames.sql', '003_clan_quest.sql', '004_deliveries.sql', '006_market.sql', '007_market_audiences.sql', '008_unify_inventory.sql']);
     expect(migrate(db)).toEqual([]);
     expect(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(user.id)).toEqual(hash);
     const after = (await agent.get('/api/game/state')).body;
@@ -85,7 +85,7 @@ describe('normalized username migration', () => {
     expect(login.status).toBe(200);
     expect(login.body.user.id).toBe(second.user.id);
     const state = await second.agent.get('/api/game/state');
-    expect(state.body.player.coins).toBe(30);
-    expect(state.body.inventory.seeds.carrot).toBe(5);
+    expect(state.body.player.coins).toBe(6); // 50 - 2 carrots at 22
+    expect(state.body.inventory.crops.carrot).toBe(5);
   });
 });

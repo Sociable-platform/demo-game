@@ -75,9 +75,9 @@ describe('courier deliveries', () => {
       const coinsBefore = t.coins(user.id);
       const res = await claim(agent, id);
       expect(res.body).toMatchObject({ granted: true, reward: { kind: 'carrots', amount: 3 } });
-      expect(res.body.state.inventory.crops.carrot).toBe(3);
+      expect(res.body.state.inventory.crops.carrot).toBe(6); // 3 to plant at the start + 3 delivered
       await claim(agent, id);
-      expect(t.carrots(user.id)).toBe(3);
+      expect(t.carrots(user.id)).toBe(6);
       expect(t.coins(user.id)).toBe(coinsBefore);
     } finally { t.db.close(); }
   });

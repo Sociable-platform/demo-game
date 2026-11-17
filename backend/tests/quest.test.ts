@@ -178,7 +178,7 @@ describe('Village Festival (mock Platform + Social)', () => {
     try {
       const { agent, user } = await signup(app, 'q_erin');
       clanOf.set(user.id, WOLVES);
-      db.prepare("INSERT INTO inventory (user_id, kind, crop_id, quantity) VALUES (?, 'crop', 'carrot', 10)").run(user.id);
+      db.prepare("INSERT INTO inventory (user_id, kind, crop_id, quantity) VALUES (?, 'crop', 'carrot', 10) ON CONFLICT (user_id, kind, crop_id) DO UPDATE SET quantity = 10").run(user.id);
       const first = await give(agent, 5, 'key-erin-0001');
       const before = fetchMock.mock.calls.length;
       const again = await give(agent, 5, 'key-erin-0001');

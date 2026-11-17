@@ -36,7 +36,8 @@ function setup() {
       });
     }
   };
-  const player = async (name: string) => { const s = await signup(app, name); return { ...s, name }; };
+  // Players start with 3 carrots to plant; clear them so the assertions are only about what the market moves.
+  const player = async (name: string) => { const s = await signup(app, name); db.prepare('DELETE FROM inventory WHERE user_id = ?').run(s.user.id); return { ...s, name }; };
   const offer = (a: Agent, body: object) => a.post('/api/market/listings').send(body);
   const browse = (a: Agent) => a.get('/api/market');
   const buy = (a: Agent, id: string) => a.post(`/api/market/listings/${id}/buy`).send({});

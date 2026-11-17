@@ -55,8 +55,8 @@ describe('potatoes', () => {
     try {
       const { agent, user } = await signup(t.app, 'q_pat');
       const state = (await agent.get('/api/game/state')).body;
-      expect(state.catalog.find((c: { id: string }) => c.id === 'potato')).toMatchObject({ unlockLevel: 2, seedPrice: 15, sellPrice: 32, growthSeconds: 20, xpReward: 12 });
-      expect(state.inventory.seeds.potato).toBe(0);
+      expect(state.catalog.find((c: { id: string }) => c.id === 'potato')).toMatchObject({ unlockLevel: 2, buyPrice: 38, sellPrice: 32, growthSeconds: 20, xpReward: 12 });
+      expect(state.inventory.crops.potato).toBe(0);
       expect((await agent.post('/api/game/shop/buy').send({ cropId: 'potato', quantity: 1 })).body.error.code).toBe('level_too_low');
       t.setXp(user.id, xpForLevel(2));
       t.db.prepare('UPDATE players SET coins = 100 WHERE user_id = ?').run(user.id);
@@ -65,7 +65,7 @@ describe('potatoes', () => {
       t.clock.advance(20_000);
       const h = await agent.post('/api/game/plots/0/harvest');
       expect(h.body).toMatchObject({ cropId: 'potato', xpGained: 12 });
-      expect(h.body.state.inventory.crops.potato).toBe(1);
+      expect(h.body.state.inventory.crops.potato).toBe(2); // 2 bought - 1 planted + 1 harvested
     } finally { t.db.close(); }
   });
 });
@@ -86,7 +86,7 @@ describe('personal quests', () => {
       expect(list.map((q) => q.status)).toEqual(['active', ...Array(9).fill('locked')]);
       expect(list[0]!.objectives).toEqual([{ cropId: 'carrot', target: 10, progress: 0 }]);
 
-      // Not harvests: buy seeds, sell crops, receive a courier delivery of carrots.
+      // Not harvests: buy crops, sell crops, receive a courier delivery of carrots.
       t.db.prepare("INSERT INTO inventory (user_id, kind, crop_id, quantity) VALUES (?, 'crop', 'carrot', 5) ON CONFLICT DO UPDATE SET quantity = 5").run(user.id);
       await agent.post('/api/game/shop/buy').send({ cropId: 'carrot', quantity: 2 });
       await agent.post('/api/game/sell').send({ cropId: 'carrot', quantity: 3 });
@@ -127,7 +127,7 @@ describe('personal quests', () => {
       expect(t.row(user.id)).toEqual(after);
       // harvest rewards do not count again towards a claimed quest, and claiming consumed no inventory
       expect((await t.quest(agent, 'l01-carrots')).status).toBe('claimed');
-      expect(again.body.state.inventory.crops.carrot).toBe(12);
+      expect(again.body.state.inventory.crops.carrot).toBe(15); // 3 starting + 12 harvested
     } finally { t.db.close(); }
   });
 
