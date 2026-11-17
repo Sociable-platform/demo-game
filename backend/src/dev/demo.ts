@@ -1,6 +1,8 @@
 import type { Db } from '../db/connection.js';
 import { createUser } from '../auth/routes.js';
 import { hashPassword } from '../auth/passwords.js';
+import type { DeleteAccount } from '../auth/delete-account.js';
+import { usernameSql } from '../auth/usernames.js';
 
 /**
  * DEVELOPMENT ONLY. These are public, throwaway credentials for demos. The HTTP route that uses this is
@@ -15,13 +17,14 @@ export async function seedDemoAccounts(
   db: Db,
   now: () => number,
   onUserCreated: (userId: string) => void,
+  deleteAccount: DeleteAccount,
   opts: { reset?: boolean } = {},
 ) {
   const results: { username: string; password: string; created: boolean }[] = [];
   for (const acct of DEMO_ACCOUNTS) {
-    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(acct.username) as { id: string } | undefined;
+    const existing = db.prepare(`SELECT id FROM users WHERE ${usernameSql} = ?`).get(acct.username) as { id: string } | undefined;
     if (existing && opts.reset) {
-      db.prepare('DELETE FROM users WHERE id = ?').run(existing.id); // cascades to sessions, farm, inventory
+      await deleteAccount(existing.id);
     }
     if (existing && !opts.reset) {
       results.push({ ...acct, created: false });

@@ -9,6 +9,7 @@ import { fakeVerify, hashPassword, verifyPassword } from './passwords.js';
 import { usernameSql } from './usernames.js';
 import { createSession, deleteExpiredSessions, deleteSession } from './sessions.js';
 import type { RequestHandler } from 'express';
+import type { DeleteAccount } from './delete-account.js';
 
 export const credentialsSchema = z.object({
   username: z
@@ -30,6 +31,7 @@ interface Deps {
   requireAuth: RequestHandler;
   /** Called inside the registration transaction so game code can create its own rows for the new user. */
   onUserCreated: (userId: string) => void;
+  deleteAccount: DeleteAccount;
 }
 
 export function createUser(
@@ -53,7 +55,7 @@ export function createUser(
   return id;
 }
 
-export function createAuthRouter({ db, config, now, requireAuth, onUserCreated }: Deps): Router {
+export function createAuthRouter({ db, config, now, requireAuth, onUserCreated, deleteAccount }: Deps): Router {
   const router = Router();
 
   const setCookie = (res: Response, token: string) =>
@@ -133,6 +135,12 @@ export function createAuthRouter({ db, config, now, requireAuth, onUserCreated }
   router.get('/me', requireAuth, (req, res) => {
     const u = req.auth!;
     res.json({ user: { id: u.userId, username: u.username, createdAt: u.createdAt } });
+  });
+
+  router.delete('/account', requireAuth, async (req, res) => {
+    await deleteAccount(req.auth!.userId);
+    clearCookie(res);
+    res.json({ ok: true });
   });
 
   return router;

@@ -47,7 +47,7 @@ describe('Clan player token bridge (mock Platform)', () => {
   });
 
   it('forced refresh always performs a fresh upstream exchange; no server token cache', async () => {
-    const fetchMock=vi.fn(async()=>new Response(JSON.stringify({token:'server.token',expiresIn:3600})));
+    const fetchMock=vi.fn(async(_url: unknown, _options: RequestInit)=>new Response(JSON.stringify({token:'server.token',expiresIn:3600})));
     vi.stubGlobal('fetch',fetchMock);const {app,db}=makeApp({env});
     try {const {agent}=await signup(app,'clan_force');
       await agent.post('/api/clan/token').send({});

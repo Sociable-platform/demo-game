@@ -7,16 +7,31 @@ import type { Config } from './config.js';
 import type { Db } from './db/connection.js';
 import { createRequireAuth } from './auth/middleware.js';
 import { createAuthRouter } from './auth/routes.js';
+import { createAccountDeletion } from './auth/delete-account.js';
 import { createGameService } from './game/service.js';
 import { createGameRouter } from './game/routes.js';
 import { createDevRouter } from './dev/routes.js';
 import { createClanRouter } from './clan/routes.js';
+import { createClanLookup } from './quest/clan-membership.js';
+import { createQuestService } from './quest/service.js';
+import { createQuestRouter } from './quest/routes.js';
+import { createDeliveryService } from './delivery/service.js';
+import { createDeliveryRouter } from './delivery/routes.js';
+import { createPersonalQuestService } from './personal-quests/service.js';
+import { createPersonalQuestRouter } from './personal-quests/routes.js';
+import { createCircleLookup, type CircleLookup } from './market/social.js';
+import { createMarketService } from './market/service.js';
+import { createMarketRouter } from './market/routes.js';
 import { AppError, errorHandler, notFoundHandler } from './http/errors.js';
 
 export interface AppDeps {
   config: Config;
   db: Db;
   now?: () => number;
+  /** Crops per harvest (default: random 1-5). Tests inject a fixed value. */
+  rollYield?: () => number;
+  /** Clan/friends lookup for the Kiosk (default: the Social service). Tests inject a fake. */
+  circle?: CircleLookup;
 }
 
 /**
@@ -25,7 +40,7 @@ export interface AppDeps {
  *   game/  - farm rules + endpoints                           (knows nothing about how auth works)
  * They meet only here: auth calls game.initPlayer when a user is created, game routes take requireAuth.
  */
-export function createApp({ config, db, now = Date.now }: AppDeps): Express {
+export function createApp({ config, db, now = Date.now, rollYield, circle }: AppDeps): Express {
   const app = express();
   if (config.trustProxy) app.set('trust proxy', 1);
   app.disable('x-powered-by');
@@ -53,15 +68,23 @@ export function createApp({ config, db, now = Date.now }: AppDeps): Express {
     next();
   });
 
-  const game = createGameService(db, now);
+  const game = createGameService(db, now, rollYield);
   const requireAuth = createRequireAuth(db, config, now);
+  const accountDeletion = createAccountDeletion(db, config);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.get('/api/config', (_req, res) => res.json({ devMode: config.enableDevRoutes }));
-  app.use('/api/auth', createAuthRouter({ db, config, now, requireAuth, onUserCreated: game.initPlayer }));
+  app.use('/api/auth', createAuthRouter({ db, config, now, requireAuth, onUserCreated: game.initPlayer, deleteAccount: accountDeletion.deleteAccount }));
   app.use('/api/game', createGameRouter(game, requireAuth));
-  app.use('/api/clan', createClanRouter(config, requireAuth));
-  if (config.enableDevRoutes) app.use('/api/dev', createDevRouter(db, now, game.initPlayer));
+  const community = createClanRouter(config, requireAuth, accountDeletion.assertTokenAllowed);
+  app.use('/api/community', community);
+  app.use('/api/clan', community); // Preserve existing SDK token callbacks.
+  const quest = createQuestService(db, now, game, createClanLookup(config, accountDeletion.assertTokenAllowed));
+  app.use('/api/quest', createQuestRouter(quest, requireAuth));
+  app.use('/api/personal-quests', createPersonalQuestRouter(createPersonalQuestService(db, now, game), requireAuth));
+  app.use('/api/market', createMarketRouter(createMarketService(db, now, game, circle ?? createCircleLookup(config, accountDeletion.assertTokenAllowed)), requireAuth));
+  app.use('/api/delivery', createDeliveryRouter(createDeliveryService(db, now, game), requireAuth));
+  if (config.enableDevRoutes) app.use('/api/dev', createDevRouter(db, now, game.initPlayer, accountDeletion.deleteAccount));
   app.use('/api', notFoundHandler);
 
   // In production the built frontend is served by this same server (same origin => cookies just work).

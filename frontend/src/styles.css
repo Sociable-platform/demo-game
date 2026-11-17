@@ -1,3 +1,22 @@
+/* Game-owned font faces: SDK font loading must not change game typography. */
+@font-face {
+  font-family: 'Harvest Village Nunito';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url(/fonts/nunito-latin-ext-400-800.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Harvest Village Nunito';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url(/fonts/nunito-latin-400-800.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   --ink: #4a2f17;
   --ink-soft: #7a5a3a;
@@ -12,7 +31,7 @@
   --gold: #f6c343;
   --red: #c8473a;
   --radius: 20px;
-  font-family: ui-rounded, 'Nunito', 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Harvest Village Nunito', ui-rounded, 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
   color: var(--ink);
 }
 
@@ -56,6 +75,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--green); border-color: var(--green-dark); color: #fff; box-shadow: 0 3px 0 var(--green-dark); text-shadow: 0 1px 0 rgba(0,0,0,.2); }
 .btn-primary:active:not(:disabled) { box-shadow: 0 1px 0 var(--green-dark); }
+.btn-danger { color: #8f2a1f; background: #fde2de; border-color: #c8473a; box-shadow: 0 3px 0 #c8473a; }
+.account-delete-dialog { color: var(--ink); max-width: calc(100vw - 32px); }
+.account-delete-dialog::backdrop { background: rgba(60, 40, 15, 0.5); }
+.account-delete-dialog .modal-actions { margin-top: 20px; }
+.account-delete-dialog .form-error { margin-top: 16px; }
 .btn-small { padding: 6px 12px; min-height: 38px; font-size: 0.92rem; }
 .btn-wide { width: 100%; font-size: 1.05rem; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -103,11 +127,34 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
 .xp-bar span { display: block; height: 100%; background: linear-gradient(90deg, #8fd45f, #5bb13d); transition: width 0.4s; }
 .xp-text { font-size: 0.75rem; color: var(--ink-soft); white-space: nowrap; }
 .coins { display: inline-flex; align-items: center; gap: 6px; background: #fff0b8; border: 2px solid #e8c45c; border-radius: 999px; padding: 4px 12px; font-size: 1.1rem; }
-.top-actions { display: flex; gap: 8px; }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .top-actions .btn { white-space: nowrap; }
 
+/* Account actions live behind one compact profile control. */
+.account-menu { position: relative; min-width: 0; }
+.account-trigger { display: flex; align-items: center; gap: 9px; min-height: 50px; padding: 4px 13px 4px 5px; border: 2px solid #ecddbf; border-radius: 999px; background: #fffbf2; color: #3d3020; font-size: 1.1rem; font-weight: 800; }
+.account-avatar { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: #f8bd32; color: #4a2f17; font-size: 1.2rem; }
+.account-username { max-width: 145px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-caret { font-size: 0.8rem; }
+.account-trigger:hover { background: #fff4de; }
+.account-help { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 2px solid #ecddbf; border-radius: 50%; background: #fffbf2; font-weight: 800; color: var(--ink-soft); }
+.top-actions { align-items: center; flex-wrap: nowrap; }
+.account-dropdown { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: min(244px, calc(100vw - 48px)); padding: 6px; border: 2px solid #ecddbf; border-radius: 18px; background: #fffbf2; box-shadow: 0 10px 26px rgba(74, 47, 23, 0.14); }
+.account-dropdown [role='menuitem'] { display: block; width: 100%; min-height: 48px; padding: 10px 16px; border: 0; border-radius: 12px; background: transparent; text-align: left; color: #3d3020; font-size: 1.1rem; font-weight: 700; }
+.account-dropdown [role='menuitem']:hover, .account-dropdown [role='menuitem']:focus { background: #eee1c3; outline: none; }
+.account-settings-dialog { width: min(564px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; border: 2px solid #ecddbf; background: #fffbf2; color: #3d3020; text-align: left; }
+.account-settings-dialog::backdrop { background: rgba(60, 40, 15, 0.4); }
+.account-settings-dialog h2 { margin: 0; font-size: 1.75rem; font-weight: 800; }
+.account-signed-in { margin: 8px 0 18px; color: #84745b; font-size: 1.1rem; }
+.account-settings-button { border-color: #ecddbf; background: #fffbf2; box-shadow: none; padding: 8px 14px; }
+.account-danger-zone { margin: 24px 0 20px; padding: 16px; border: 2px solid #c83429; border-radius: 20px; background: #fcedea; }
+.account-danger-zone h3 { margin: 0 0 6px; color: #c83429; font-size: 1.15rem; text-transform: none; letter-spacing: 0; }
+.account-danger-zone p { margin: 0; font-size: 1.05rem; line-height: 1.45; }
+.account-delete-link { display: inline-block; min-height: 44px; margin-top: 8px; padding: 0; border: 0; background: transparent; color: #c83429; text-decoration: underline; text-underline-offset: 2px; font-weight: 800; }
+.account-settings-footer { display: flex; justify-content: flex-end; }
+
 .tabs { display: none; }
-.layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 .col-side { display: grid; gap: 16px; }
 
 /* ---------- farm ---------- */
@@ -143,6 +190,105 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
 @keyframes bounce { 50% { transform: translateY(-5px) scale(1.06); } }
 @keyframes glow { 50% { box-shadow: 0 0 0 3px rgba(255, 218, 90, 1), 0 0 30px rgba(255, 210, 70, 1); } }
 .sprout { transition: transform 0.3s; }
+
+/* ---------- farm HUD, drawer and 3D world (all rules scoped; the Clan widget and global fonts are untouched) ---------- */
+.farm-hud:not(.farm-hud--overlay) { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 12px; }
+.farm-hud:not(.farm-hud--overlay) .seed-tray { margin: 0; }
+.farm-hud:not(.farm-hud--overlay) .farm-hud-hint { order: 3; flex-basis: 100%; margin: 0; }
+.farm-hud-menu { display: flex; gap: 6px; }
+
+/* The world fills the game viewport under the header. */
+.app-3d { max-width: none; height: 100vh; height: 100dvh; min-height: 0; padding: 8px 10px; display: flex; flex-direction: column; }
+.app-3d .topbar { flex: none; margin-bottom: 8px; }
+.app-3d .layout { flex: 1; min-height: 0; display: block; }
+.app-3d .col-farm { height: 100%; }
+/* Own stacking context below the Clan panel (z-index 50) and the drawer (40): the canvas can never cover them. */
+.farm-world {
+  position: relative; z-index: 0; isolation: isolate; overflow: hidden; height: 100%; min-height: 260px; border-radius: 16px;
+  background: linear-gradient(180deg, #bfe4f3 0, #e8f3df 55%, #cfe6a0 100%);
+}
+.farm3d { position: absolute; inset: 0; }
+.farm3d-stage { position: absolute; inset: 0; }
+.farm3d-stage canvas { display: block; touch-action: manipulation; }
+.farm3d-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-soft); font-weight: 700; }
+
+.farm-hud--overlay { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.farm-hud--overlay > * { position: absolute; pointer-events: auto; margin: 0; }
+.farm-hud--overlay .farm-hud-seeds { top: 10px; left: 10px; gap: 6px; max-width: calc(100% - 150px); }
+.farm-hud--overlay .seed-pill { min-height: 40px; background: rgba(255, 248, 230, 0.94); box-shadow: 0 2px 6px rgba(74, 47, 23, 0.18); }
+.farm-hud--overlay .seed-pill.is-selected { background: #e4f5d0; }
+.farm-hud--overlay .farm-hud-menu { top: 10px; right: 10px; }
+.farm-hud--overlay .farm-hud-menu .btn { box-shadow: 0 2px 6px rgba(74, 47, 23, 0.2); }
+.farm-hud--overlay .farm-hud-hint { left: 50%; bottom: 10px; transform: translateX(-50%); width: max-content; max-width: min(520px, calc(100% - 270px)); text-align: center; font-size: 0.85rem; padding: 6px 12px; background: rgba(233, 245, 214, 0.95); }
+
+.drawer {
+  position: fixed; z-index: 40; right: 10px; top: 140px; bottom: 76px; width: min(400px, calc(100vw - 20px));
+  overflow-y: auto; overscroll-behavior: contain;
+}
+.drawer:focus { outline: none; }
+.drawer .card h2 { padding-right: 44px; }
+.drawer-close { position: absolute; top: 12px; right: 12px; z-index: 1; width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--tan-dark); background: #fff; font-size: 1.25rem; font-weight: 800; line-height: 1; }
+
+.farm3d-floats { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 2; }
+.farm3d-float {
+  position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-weight: 800; font-size: 1.05rem;
+  padding: 2px 10px; border-radius: 999px; border: 2px solid #e8c45c; background: #fff6cf; color: var(--ink);
+  box-shadow: 0 3px 8px rgba(74, 47, 23, 0.25); opacity: 0; animation: farm3d-rise 1.6s ease-out forwards;
+}
+.farm3d-float-xp { background: #e4f5d0; border-color: #86c05a; color: #2f5a17; }
+.farm3d-float-level { background: #ffe9a8; border-color: #e0a52a; }
+@keyframes farm3d-rise {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); }
+  15% { opacity: 1; transform: translate(-50%, -70%) scale(1.05); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -230%) scale(1); }
+}
+.farm3d-pending { position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%); z-index: 3; padding: 4px 12px; border-radius: 999px; background: rgba(255, 248, 230, 0.94); border: 2px solid var(--tan-dark); font-weight: 800; font-size: 0.85rem; color: var(--ink-soft); }
+
+/* Numbered plot list: collapsed by default, still available for keyboard / screen-reader use. */
+.farm3d-plotpanel { position: absolute; left: 10px; bottom: 10px; z-index: 4; width: min(380px, calc(100% - 20px)); }
+.farm3d-plotpanel summary { display: inline-block; cursor: pointer; padding: 6px 14px; border-radius: 999px; border: 2px solid var(--tan-dark); background: rgba(255, 248, 230, 0.94); font-weight: 800; font-size: 0.85rem; list-style: none; box-shadow: 0 2px 6px rgba(74, 47, 23, 0.2); }
+.farm3d-plotpanel summary::-webkit-details-marker { display: none; }
+.farm3d-plotpanel[open] summary { margin-bottom: 6px; }
+.farm3d-plots { list-style: none; margin: 0; padding: 8px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; border-radius: 14px; background: rgba(255, 248, 230, 0.96); border: 2px solid var(--tan-dark); }
+.farm3d-chip { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 40px; padding: 4px 8px 4px 5px; border-radius: 12px; border: 2px solid var(--tan-dark); background: #fff; font-weight: 700; font-size: 0.75rem; text-align: left; }
+.farm3d-chip[aria-disabled='true'] { opacity: 0.6; cursor: progress; }
+.farm3d-chip-no { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--soil); color: #fff8e6; font-size: 0.72rem; }
+.farm3d-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.farm3d-chip-growing, .farm3d-chip-planted { background: #eef7e0; border-color: #a9d27d; }
+.farm3d-chip-ready { background: #fff1bd; border-color: #e8b923; box-shadow: 0 0 0 2px rgba(255, 218, 90, 0.6); }
+/* Clan quest drawer */
+.quest-card .hint { margin-bottom: 10px; }
+.quest-clan { margin: 0 0 8px; }
+.quest-count { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; margin-bottom: 6px; }
+.quest-bar { width: 100%; height: 16px; }
+.quest-progress.is-done .quest-bar span { background: linear-gradient(90deg, #f6c343, #e8a317); }
+.quest-facts { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 4px; }
+.quest-facts li { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.quest-why { margin-top: 8px; }
+.quest-note, .quest-error { margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; background: #e3effa; border: 2px solid #8ab4dc; color: #1f4a73; }
+.quest-error { background: #fde2de; border-color: #e0877d; color: #7d2118; }
+.quest-error p { margin: 0 0 8px; }
+.quest-celebrate { position: relative; display: grid; gap: 10px; justify-items: center; text-align: center; margin-top: 12px; padding: 14px 12px; border-radius: 14px; background: #fff1bd; border: 2px solid #e8b923; animation: quest-glow 2.4s ease-in-out infinite; }
+.quest-celebrate p { margin: 0; }
+.quest-claimed { font-weight: 800; color: #2f5a17; background: #e4f5d0; border: 2px solid #86c05a; border-radius: 999px; padding: 4px 14px; }
+.quest-party { display: flex; gap: 8px; height: 10px; }
+.quest-party i { width: 8px; height: 8px; border-radius: 50%; background: #f6c343; animation: quest-pop 1.6s ease-in-out infinite; }
+.quest-party i:nth-child(2) { background: #6fae4f; animation-delay: 0.2s; }
+.quest-party i:nth-child(3) { background: #c8473a; animation-delay: 0.4s; }
+.quest-party i:nth-child(4) { background: #5b9bd5; animation-delay: 0.6s; }
+.quest-party i:nth-child(5) { background: #f28c28; animation-delay: 0.8s; }
+@keyframes quest-glow { 50% { box-shadow: 0 0 14px rgba(255, 210, 70, 0.8); } }
+@keyframes quest-pop { 50% { transform: translateY(-8px); } }
+@media (max-width: 899px) { .drawer { top: 200px; } }
+@media (max-width: 600px) {
+  .farm-hud--overlay .farm-hud-seeds { max-width: calc(100% - 120px); }
+  .farm-hud--overlay .farm-hud-menu { flex-direction: column; align-items: stretch; }
+  .drawer { top: 150px; }
+  .farm-hud--overlay .seed-pill-name { display: none; }
+  .farm-hud--overlay .farm-hud-hint { bottom: 54px; max-width: calc(100% - 20px); }
+  .farm3d-pending { bottom: 100px; }
+}
 
 /* ---------- shop & barn ---------- */
 .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -198,6 +344,14 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
   .tab-panel.is-active { display: block; }
 }
 @media (max-width: 480px) {
+  .topbar { grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; padding: 10px; }
+  .brand { font-size: 0.98rem; white-space: normal; line-height: 1.1; }
+  .brand svg { width: 28px; height: 28px; flex: none; }
+  .account-trigger { gap: 6px; min-height: 44px; padding: 4px 8px 4px 4px; font-size: 0.95rem; }
+  .account-avatar { width: 32px; height: 32px; font-size: 1.05rem; }
+  .account-username { max-width: 70px; }
+  .account-help { width: 32px; height: 32px; }
+  .top-actions { gap: 6px; }
   .xp-text { display: none; }
   .profile-name { max-width: 110px; }
   .row-item { grid-template-columns: auto 1fr; }
@@ -207,7 +361,109 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
   .plot-badge { font-size: 0.6rem; }
   .plot-grid { gap: 7px; padding: 8px; }
   .card { padding: 14px; }
+  .account-settings-dialog { padding: 20px; }
+}
+@media (max-width: 360px) {
+  .brand svg { display: none; }
+  .brand { gap: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ---------- courier delivery (scoped) ---------- */
+.farm3d-bubble {
+  position: absolute; z-index: 2; left: 0; top: 0; transform: translate(-50%, -100%); opacity: 0; pointer-events: none;
+  padding: 4px 10px; border-radius: 12px; background: #fffaf0; border: 2px solid var(--tan-dark); color: var(--ink);
+  font-weight: 800; font-size: 0.8rem; white-space: nowrap; box-shadow: 0 2px 6px rgba(74, 47, 23, 0.25); transition: opacity 0.15s;
+}
+.farm3d-bubble::after {
+  content: ''; position: absolute; left: 50%; bottom: -7px; width: 10px; height: 10px; background: #fffaf0;
+  border-right: 2px solid var(--tan-dark); border-bottom: 2px solid var(--tan-dark); transform: translateX(-50%) rotate(45deg);
+}
+.delivery-note { position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%); z-index: 40; max-width: calc(100vw - 24px); pointer-events: none; }
+.delivery-note > span { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: 999px; background: rgba(255, 248, 230, 0.97); border: 2px solid var(--tan-dark); font-weight: 800; font-size: 0.88rem; color: var(--ink); box-shadow: 0 2px 8px rgba(74, 47, 23, 0.25); }
+.delivery-note-wait { pointer-events: auto; }
+.delivery-note-btn { min-height: 32px; padding: 2px 12px; border-radius: 999px; border: 2px solid var(--tan-dark); background: #e4f5d0; font-weight: 800; cursor: pointer; }
+
+/* ---------- personal quests (scoped) ---------- */
+.pq-card { margin-bottom: 14px; }
+.pq-sub { margin: 0 0 8px; }
+.pq-eyebrow { margin: 0 0 2px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); }
+.pq-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pq-item { display: grid; gap: 6px; padding: 8px 10px; border-radius: 12px; background: #fff; border: 2px solid var(--tan); font-size: 0.88rem; }
+.pq-item.is-claimed { grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; background: #eef7e2; border-color: #b5d890; color: #3c5a24; }
+.pq-item.is-locked { grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px; opacity: 0.7; background: #f3ead2; }
+.pq-lock { font-size: 0.72rem; text-transform: uppercase; }
+.pq-req { grid-column: 1 / -1; font-size: 0.78rem; color: var(--ink-soft); font-weight: 700; }
+.pq-item.is-ready { background: #fff1bd; border-color: #e8b923; }
+.pq-check { color: #4a8f2a; font-weight: 900; }
+.pq-done { font-size: 0.75rem; }
+.pq-obj { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+.pq-bar { width: 100%; height: 12px; }
+.pq-num { font-weight: 800; font-size: 0.8rem; white-space: nowrap; }
+.pq-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.pq-prize { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.82rem; }
+.pq-prize > span { display: inline-flex; align-items: center; gap: 4px; }
+.pq-error { margin: 0; padding: 6px 10px; border-radius: 10px; background: #fde2de; border: 2px solid #e0877d; color: #7d2118; font-size: 0.8rem; }
+
+/* ---------- kiosk market (scoped) ---------- */
+.kiosk-dialog { width: min(520px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; padding: 18px 20px 20px; border: 2px solid #ecddbf; background: #fffbf2; color: var(--ink); text-align: left; }
+.kiosk-dialog::backdrop { background: rgba(60, 40, 15, 0.45); }
+.kiosk-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.kiosk-top h2 { margin: 0; flex: 1; font-size: 1.5rem; }
+.kiosk-x { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--tan-dark); background: #fff; font-size: 1.25rem; font-weight: 800; line-height: 1; cursor: pointer; }
+.kiosk-home .hint { margin: 0 0 12px; }
+.kiosk-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.kiosk-choice { min-height: 84px; font-size: 1.15rem; }
+.kiosk-note { margin: 8px 0 0; }
+.kiosk-body { display: grid; gap: 12px; }
+.kiosk-form { display: grid; gap: 12px; }
+.kiosk-field { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; }
+.kiosk-field legend { padding: 0; font-weight: 800; margin-bottom: 4px; }
+.kiosk-crops { display: flex; flex-wrap: wrap; gap: 8px; }
+.kiosk-crop { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 12px 4px 8px; border-radius: 12px; border: 2px solid var(--tan-dark); background: #fff; font-weight: 700; cursor: pointer; }
+.kiosk-crop.is-selected { background: #e4f5d0; border-color: #6fae4f; }
+.kiosk-numbers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.kiosk-numbers label { display: grid; gap: 4px; font-weight: 800; font-size: 0.88rem; }
+.kiosk-numbers input { min-height: 42px; padding: 6px 10px; border-radius: 10px; border: 2px solid var(--tan-dark); font: inherit; background: #fff; }
+.kiosk-audience { display: flex; flex-wrap: wrap; gap: 8px; }
+.kiosk-summary { margin: 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 12px; border-radius: 12px; background: #fff1bd; border: 2px solid #e8b923; }
+.kiosk-list-section h3 { margin: 4px 0 6px; font-size: 1rem; }
+.kiosk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.kiosk-offer { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: #fff; border: 2px solid var(--tan); }
+.kiosk-offer-main { display: grid; gap: 2px; min-width: 0; }
+.kiosk-offer-main small { color: var(--ink-soft); font-weight: 700; }
+.kiosk-price { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; }
+.kiosk-empty { margin: 4px 0; padding: 12px; text-align: center; border-radius: 12px; background: #f3ead2; color: var(--ink-soft); font-weight: 700; }
+.kiosk-error { margin: 0; padding: 8px 12px; border-radius: 12px; background: #fde2de; border: 2px solid #e0877d; color: #7d2118; font-size: 0.88rem; }
+@media (max-width: 480px) { .kiosk-choices, .kiosk-numbers { grid-template-columns: 1fr; } .kiosk-offer { grid-template-columns: auto 1fr auto; } .kiosk-offer .btn { grid-column: 1 / -1; } }
+.kiosk-home .kiosk-note { margin-top: 18px; }
+.kiosk-link { padding: 0; border: 0; background: none; color: #1f6b3a; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+
+/* ---------- kiosk redesign: market stall ---------- */
+.kiosk-dialog { padding: 0 20px 20px; border-radius: 24px; border-color: #e6cf9d; box-shadow: 0 18px 40px rgba(60, 40, 15, 0.35); }
+.kiosk-awning { height: 30px; margin: 0 -20px 14px; background:
+  radial-gradient(circle at 20px 100%, #fffbf2 0 9px, transparent 10px) 0 100% / 40px 12px repeat-x,
+  repeating-linear-gradient(90deg, #d9534a 0 40px, #fff4dc 40px 80px); border-bottom: 3px solid #b5392f; }
+.kiosk-top { margin-bottom: 6px; }
+.kiosk-top h2 { font-size: 1.6rem; letter-spacing: 0.2px; }
+.kiosk-lead { margin: 0 0 16px; color: var(--ink-soft); font-weight: 700; }
+.kiosk-home .kiosk-choices { gap: 14px; }
+.kiosk-card { position: relative; display: grid; justify-items: center; align-content: start; gap: 6px; padding: 18px 12px 14px; border-radius: 20px; border: 2px solid var(--tan-dark); background: linear-gradient(180deg, #fffdf6, #fdeec8); color: var(--ink); font: inherit; cursor: pointer; box-shadow: 0 5px 0 var(--tan-dark); transition: transform .12s ease, box-shadow .12s ease; }
+.kiosk-card:hover { transform: translateY(-2px); box-shadow: 0 7px 0 var(--tan-dark); }
+.kiosk-card:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--tan-dark); }
+.kiosk-card:focus-visible { outline: 3px solid #1f6b3a; outline-offset: 2px; }
+.kiosk-card-sell { border-color: #e0a92a; box-shadow: 0 5px 0 #e0a92a; background: linear-gradient(180deg, #fffbe6, #fff0b8); }
+.kiosk-card-sell:hover { box-shadow: 0 7px 0 #e0a92a; }
+.kiosk-card-sell:active { box-shadow: 0 2px 0 #e0a92a; }
+.kiosk-card-buy { border-color: #6fae4f; box-shadow: 0 5px 0 #4c8a33; background: linear-gradient(180deg, #f6fcec, #dff2c6); }
+.kiosk-card-buy:hover { box-shadow: 0 7px 0 #4c8a33; }
+.kiosk-card-buy:active { box-shadow: 0 2px 0 #4c8a33; }
+.kiosk-card-icon { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; background: #fff; border: 2px solid rgba(74, 47, 23, 0.15); }
+.kiosk-card-title { font-size: 1.15rem; font-weight: 800; }
+.kiosk-card-sub { font-size: 0.82rem; color: var(--ink-soft); font-weight: 700; line-height: 1.25; min-height: 2.1em; }
+.kiosk-card-badge { margin-top: 4px; padding: 3px 12px; border-radius: 999px; background: #fff; border: 2px solid rgba(74, 47, 23, 0.15); font-size: 0.8rem; font-weight: 800; }
+.kiosk-wallet { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 0; padding: 10px 14px; border-radius: 14px; background: #f3ead2; font-weight: 700; color: var(--ink-soft); }
+.kiosk-wallet strong { color: var(--ink); font-size: 1.05rem; }
+@media (prefers-reduced-motion: reduce) { .kiosk-card { transition: none; } }

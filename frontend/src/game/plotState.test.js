@@ -34,15 +34,15 @@ describe('plot phases', () => {
 describe('nextHint', () => {
   const base = (over = {}) => ({
     farm: { plots: [empty, empty] },
-    inventory: { seeds: { carrot: 1 }, crops: { carrot: 0 } },
+    inventory: { crops: { carrot: 1 } },
     ...over,
   });
   it('guides the player through the loop', () => {
-    expect(nextHint(base(), 0)).toMatch(/Pick a seed/);
-    expect(nextHint(base({ farm: { plots: [plot, empty] } }), 5000)).toMatch(/Pick a seed/);
-    expect(nextHint(base({ inventory: { seeds: { carrot: 0 }, crops: { carrot: 0 } }, farm: { plots: [plot] } }), 5000)).toMatch(/growing/);
+    expect(nextHint(base(), 0)).toMatch(/Pick a crop/);
+    expect(nextHint(base({ farm: { plots: [plot, empty] } }), 5000)).toMatch(/Pick a crop/);
+    expect(nextHint(base({ inventory: { crops: { carrot: 0 } }, farm: { plots: [plot] } }), 5000)).toMatch(/growing/);
     expect(nextHint(base({ farm: { plots: [plot] } }), 20000)).toMatch(/ripe/);
-    expect(nextHint(base({ inventory: { seeds: { carrot: 0 }, crops: { carrot: 2 } } }), 0)).toMatch(/Barn/);
-    expect(nextHint(base({ inventory: { seeds: { carrot: 0 }, crops: { carrot: 0 } } }), 0)).toMatch(/Seed Shop/);
+    expect(nextHint(base({ inventory: { crops: { carrot: 2 } }, farm: { plots: [plot] } }), 5000)).toMatch(/Barn/);
+    expect(nextHint(base({ inventory: { crops: { carrot: 0 } } }), 0)).toMatch(/Shop/);
   });
 });

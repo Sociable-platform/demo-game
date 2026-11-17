@@ -9,3 +9,4 @@ ingress:
 # (clan tokens fail with 502 or 504 while Platform is healthy), use the in-cluster address
 # instead: http://platform:8081
 clanPlatformUrl: https://platform.130-61-158-79.sslip.io
+clanSocialUrl: https://social.130-61-158-79.sslip.io

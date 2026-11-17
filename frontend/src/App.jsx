@@ -47,13 +47,22 @@ export default function App() {
     push('error', 'Your session has ended. Please log in again.');
   }, [push]);
 
+  const deleteAccount = useCallback(async () => {
+    // Failure leaves the player/game intact; success waits for both cleanups.
+    await api.deleteAccount();
+    try { localStorage.removeItem(`harvest-village:tutorial-seen:${user.id}`); } catch { /* cosmetic flag */ }
+    setUser(null);
+    setPhase('anon'); // Unmount game state and destroy/reset the community widget.
+    push('success', 'Your account, progress, and Social profile have been deleted.');
+  }, [user, push]);
+
   return (
     <>
       {phase === 'loading' && <p className="loading">Loading…</p>}
       {phase === 'anon' && <AuthScreen devMode={devMode} onAuthed={onAuthed} notify={push} />}
       {phase === 'ready' && user && (
         // Switching accounts resets the game view.
-        <GameScreen key={`game:${user.id}`} user={user} onLogout={logout} onSessionExpired={sessionExpired} notify={push} />
+        <GameScreen key={`game:${user.id}`} user={user} onLogout={logout} onDeleteAccount={deleteAccount} onSessionExpired={sessionExpired} notify={push} />
       )}
       <Toasts toasts={toasts} dismiss={dismiss} />
       {phase === 'ready' && user && <CommunityClans key={`clans:${user.id}`} notify={push} />}

@@ -33,12 +33,13 @@ export const clockOffset = (serverTime, clientNow = Date.now()) => serverTime - 
 /** One short sentence telling a new player what to do next. */
 export function nextHint(state, now) {
   const { plots } = state.farm;
-  const seeds = Object.values(state.inventory.seeds).reduce((a, b) => a + b, 0);
+  // A crop is also what you plant (like a carrot in Minecraft), so one inventory count covers planting and selling.
   const crops = Object.values(state.inventory.crops).reduce((a, b) => a + b, 0);
   const phases = plots.map((p) => plotPhase(p, now));
   if (phases.includes('ready')) return 'Something is ripe! Tap a glowing plot to harvest it.';
-  if (crops > 0) return 'Nice haul! Open the Barn and sell your crops for coins.';
-  if (seeds > 0 && phases.includes('empty')) return 'Pick a seed, then tap an empty plot to plant it.';
-  if (phases.some((p) => p !== 'empty')) return 'Your crops are growing. The timers count down to harvest time.';
-  return 'Out of seeds? Visit the Seed Shop and buy some more.';
+  if (crops > 0 && phases.includes('empty')) return 'Pick a crop, then tap an empty plot to plant it. Keep some to plant again!';
+  if (phases.some((p) => p !== 'empty')) {
+    return crops > 0 ? 'Your crops are growing. Sell extras in the Barn for coins.' : 'Your crops are growing. The timers count down to harvest time.';
+  }
+  return 'Out of crops? Buy one in the Shop and plant it.';
 }

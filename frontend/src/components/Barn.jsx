@@ -3,12 +3,11 @@ import { Coin, CropIcon } from './Icons.jsx';
 export default function Barn({ state, busy, onSell }) {
   const { catalog, inventory } = state;
   const owned = catalog.filter((c) => (inventory.crops[c.id] ?? 0) > 0);
-  const seeds = catalog.filter((c) => (inventory.seeds[c.id] ?? 0) > 0);
   return (
     <section className="card" aria-labelledby="barn-title">
       <h2 id="barn-title">Barn</h2>
 
-      <h3>Harvested crops</h3>
+      <h3>Your crops</h3>
       {owned.length === 0 ? (
         <p className="empty-note">Nothing to sell yet. Harvest a ripe crop and it will show up here.</p>
       ) : (
@@ -36,14 +35,7 @@ export default function Barn({ state, busy, onSell }) {
         </ul>
       )}
 
-      <h3>Seeds</h3>
-      {seeds.length === 0 ? (
-        <p className="empty-note">No seeds left. Pick some up in the Seed Shop.</p>
-      ) : (
-        <p className="seed-summary">
-          {seeds.map((c) => `${c.name} ×${inventory.seeds[c.id]}`).join('  ·  ')}
-        </p>
-      )}
+      <p className="hint">Crops are also what you plant, so keep a few to grow more.</p>
     </section>
   );
 }
