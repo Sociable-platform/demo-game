@@ -12,6 +12,9 @@ import { createGameService } from './game/service.js';
 import { createGameRouter } from './game/routes.js';
 import { createDevRouter } from './dev/routes.js';
 import { createClanRouter } from './clan/routes.js';
+import { createClanLookup } from './quest/clan-membership.js';
+import { createQuestService } from './quest/service.js';
+import { createQuestRouter } from './quest/routes.js';
 import { AppError, errorHandler, notFoundHandler } from './http/errors.js';
 
 export interface AppDeps {
@@ -65,6 +68,8 @@ export function createApp({ config, db, now = Date.now }: AppDeps): Express {
   const community = createClanRouter(config, requireAuth, accountDeletion.assertTokenAllowed);
   app.use('/api/community', community);
   app.use('/api/clan', community); // Preserve existing SDK token callbacks.
+  const quest = createQuestService(db, now, game, createClanLookup(config, accountDeletion.assertTokenAllowed));
+  app.use('/api/quest', createQuestRouter(quest, requireAuth));
   if (config.enableDevRoutes) app.use('/api/dev', createDevRouter(db, now, game.initPlayer, accountDeletion.deleteAccount));
   app.use('/api', notFoundHandler);
 

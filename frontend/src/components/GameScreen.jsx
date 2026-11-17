@@ -7,6 +7,7 @@ import Header from './Header.jsx';
 import Farm from './Farm.jsx';
 import Shop from './Shop.jsx';
 import Barn from './Barn.jsx';
+import ClanQuestPanel from './ClanQuestPanel.jsx';
 import Tutorial from './Tutorial.jsx';
 import AccountSettingsDialog from './AccountSettingsDialog.jsx';
 
@@ -103,11 +104,13 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
               tabIndex={-1}
               className="drawer"
               role="dialog"
-              aria-label={panel === 'shop' ? 'Seed Shop' : 'Barn'}
+              aria-label={{ shop: 'Seed Shop', barn: 'Barn', quest: 'Clan Quest' }[panel]}
               onKeyDown={(e) => { if (e.key === 'Escape') setPanel(null); }}
             >
               <button type="button" className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
-              {panel === 'shop' ? <Shop state={state} busy={busy} onBuy={game.buy} /> : <Barn state={state} busy={busy} onSell={game.sell} />}
+              {panel === 'shop' && <Shop state={state} busy={busy} onBuy={game.buy} />}
+              {panel === 'barn' && <Barn state={state} busy={busy} onSell={game.sell} />}
+              {panel === 'quest' && <ClanQuestPanel state={state} game={game} onSessionExpired={onSessionExpired} />}
             </aside>
           )}
         </>

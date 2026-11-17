@@ -29,7 +29,7 @@ describe('normalized username migration', () => {
     db.prepare('UPDATE users SET username = ? WHERE id = ?').run('\t NuRaY\u00a0',user.id);
     const hash = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(user.id);
     const before = (await agent.get('/api/game/state')).body;
-    expect(migrate(db)).toEqual(['002_unique_normalized_usernames.sql']);
+    expect(migrate(db)).toEqual(['002_unique_normalized_usernames.sql', '003_clan_quest.sql']);
     expect(migrate(db)).toEqual([]);
     expect(db.prepare('SELECT password_hash FROM users WHERE id = ?').get(user.id)).toEqual(hash);
     const after = (await agent.get('/api/game/state')).body;

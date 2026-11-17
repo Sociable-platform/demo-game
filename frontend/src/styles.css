@@ -215,7 +215,7 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
 
 .farm-hud--overlay { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 .farm-hud--overlay > * { position: absolute; pointer-events: auto; margin: 0; }
-.farm-hud--overlay .farm-hud-seeds { top: 10px; left: 10px; gap: 6px; max-width: calc(100% - 200px); }
+.farm-hud--overlay .farm-hud-seeds { top: 10px; left: 10px; gap: 6px; max-width: calc(100% - 330px); }
 .farm-hud--overlay .seed-pill { min-height: 40px; background: rgba(255, 248, 230, 0.94); box-shadow: 0 2px 6px rgba(74, 47, 23, 0.18); }
 .farm-hud--overlay .seed-pill.is-selected { background: #e4f5d0; }
 .farm-hud--overlay .farm-hud-menu { top: 10px; right: 10px; }
@@ -258,9 +258,34 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
 .farm3d-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .farm3d-chip-growing, .farm3d-chip-planted { background: #eef7e0; border-color: #a9d27d; }
 .farm3d-chip-ready { background: #fff1bd; border-color: #e8b923; box-shadow: 0 0 0 2px rgba(255, 218, 90, 0.6); }
+/* Clan quest drawer */
+.quest-card .hint { margin-bottom: 10px; }
+.quest-clan { margin: 0 0 8px; }
+.quest-count { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; margin-bottom: 6px; }
+.quest-bar { width: 100%; height: 16px; }
+.quest-progress.is-done .quest-bar span { background: linear-gradient(90deg, #f6c343, #e8a317); }
+.quest-facts { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 4px; }
+.quest-facts li { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.quest-why { margin-top: 8px; }
+.quest-note, .quest-error { margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; background: #e3effa; border: 2px solid #8ab4dc; color: #1f4a73; }
+.quest-error { background: #fde2de; border-color: #e0877d; color: #7d2118; }
+.quest-error p { margin: 0 0 8px; }
+.quest-celebrate { position: relative; display: grid; gap: 10px; justify-items: center; text-align: center; margin-top: 12px; padding: 14px 12px; border-radius: 14px; background: #fff1bd; border: 2px solid #e8b923; animation: quest-glow 2.4s ease-in-out infinite; }
+.quest-celebrate p { margin: 0; }
+.quest-claimed { font-weight: 800; color: #2f5a17; background: #e4f5d0; border: 2px solid #86c05a; border-radius: 999px; padding: 4px 14px; }
+.quest-party { display: flex; gap: 8px; height: 10px; }
+.quest-party i { width: 8px; height: 8px; border-radius: 50%; background: #f6c343; animation: quest-pop 1.6s ease-in-out infinite; }
+.quest-party i:nth-child(2) { background: #6fae4f; animation-delay: 0.2s; }
+.quest-party i:nth-child(3) { background: #c8473a; animation-delay: 0.4s; }
+.quest-party i:nth-child(4) { background: #5b9bd5; animation-delay: 0.6s; }
+.quest-party i:nth-child(5) { background: #f28c28; animation-delay: 0.8s; }
+@keyframes quest-glow { 50% { box-shadow: 0 0 14px rgba(255, 210, 70, 0.8); } }
+@keyframes quest-pop { 50% { transform: translateY(-8px); } }
 @media (max-width: 899px) { .drawer { top: 200px; } }
 @media (max-width: 600px) {
-  .farm-hud--overlay .farm-hud-seeds { max-width: calc(100% - 150px); }
+  .farm-hud--overlay .farm-hud-seeds { max-width: calc(100% - 120px); }
+  .farm-hud--overlay .farm-hud-menu { flex-direction: column; align-items: stretch; }
+  .drawer { top: 150px; }
   .farm-hud--overlay .seed-pill-name { display: none; }
   .farm-hud--overlay .farm-hud-hint { bottom: 54px; max-width: calc(100% - 20px); }
   .farm3d-pending { bottom: 100px; }

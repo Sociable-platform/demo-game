@@ -51,6 +51,9 @@ export const api = {
   plant: (plotIndex, cropId) => request('POST', `/game/plots/${plotIndex}/plant`, { cropId }),
   harvest: (plotIndex) => request('POST', `/game/plots/${plotIndex}/harvest`, {}),
   sell: (cropId, quantity) => request('POST', '/game/sell', { cropId, quantity }),
+  quest: () => request('GET', '/quest'),
+  questContribute: (quantity, idempotencyKey) => request('POST', '/quest/contribute', { quantity, idempotencyKey }),
+  questClaim: () => request('POST', '/quest/claim', {}),
   devDemoAccounts: (reset = false) => request('POST', '/dev/demo-accounts', { reset }),
 };
 

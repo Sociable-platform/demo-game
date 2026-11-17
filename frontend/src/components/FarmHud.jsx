@@ -23,7 +23,7 @@ export default function FarmHud({ catalog, inventory, selectedSeed, onSelectSeed
         ))}
       </div>
       <div className="farm-hud-menu">
-        {[['shop', 'Seed Shop'], ['barn', 'Barn']].map(([id, label]) => (
+        {[['shop', 'Seed Shop'], ['barn', 'Barn'], ['quest', 'Clan Quest']].map(([id, label]) => (
           <button
             key={id}
             type="button"

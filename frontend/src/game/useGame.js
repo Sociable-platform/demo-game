@@ -68,18 +68,20 @@ export function useGame({ notify, onSessionExpired, onActionResult }) {
 
   const run = useCallback(
     async (call, onSuccess) => {
-      if (busyRef.current) return;
+      if (busyRef.current) return { ok: false, err: null };
       busyRef.current = true;
       setBusy(true);
       try {
         const res = await call();
-        if (!alive.current) return;
+        if (!alive.current) return { ok: true };
         apply(res.state);
         onSuccess(res);
         try { resultRef.current?.(res); } catch { /* visual effects must never break a confirmed action */ }
+        return { ok: true };
       } catch (err) {
         fail(err);
         if (err.status === 409) await refresh(); // our view was stale (e.g. crop not actually ready)
+        return { ok: false, err };
       } finally {
         busyRef.current = false;
         if (alive.current) setBusy(false);
@@ -112,6 +114,17 @@ export function useGame({ notify, onSessionExpired, onActionResult }) {
           notify('success', `Harvested ${cropName(r.cropId)}! +${r.xpGained} XP`);
           if (r.leveledUp) notify('success', `Level up! You reached level ${r.newLevel}.`);
         },
+      ),
+    // Clan quest: the server decides the clan, the accepted amount and the reward; we only render the answer.
+    contributeQuest: (quantity, idempotencyKey) =>
+      run(
+        () => api.questContribute(quantity, idempotencyKey),
+        (r) => notify('success', `Contributed ${plural(r.accepted, 'carrot')} to the Village Festival.`),
+      ),
+    claimQuest: () =>
+      run(
+        () => api.questClaim(),
+        (r) => notify('success', r.coinsGranted > 0 ? `Reward claimed: +${r.coinsGranted} coins!` : 'Reward already claimed.'),
       ),
     sell: (cropId, quantity) =>
       run(
