@@ -10,12 +10,14 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
  * - `now` is server-adjusted time, refreshed 4x per second, used only to DRAW progress.
  * - `busy` blocks overlapping requests (double clicks); the server independently guards against duplicates.
  */
-export function useGame({ notify, onSessionExpired }) {
+export function useGame({ notify, onSessionExpired, onActionResult }) {
   const [state, setState] = useState(null);
   const [now, setNow] = useState(() => Date.now());
   const offsetRef = useRef(0);
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
+  const resultRef = useRef(onActionResult);
+  useEffect(() => { resultRef.current = onActionResult; }, [onActionResult]);
   const alive = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
@@ -74,6 +76,7 @@ export function useGame({ notify, onSessionExpired }) {
         if (!alive.current) return;
         apply(res.state);
         onSuccess(res);
+        try { resultRef.current?.(res); } catch { /* visual effects must never break a confirmed action */ }
       } catch (err) {
         fail(err);
         if (err.status === 409) await refresh(); // our view was stale (e.g. crop not actually ready)

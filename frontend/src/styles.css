@@ -155,7 +155,7 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
 .account-settings-footer { display: flex; justify-content: flex-end; }
 
 .tabs { display: none; }
-.layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 .col-side { display: grid; gap: 16px; }
 
 /* ---------- farm ---------- */
@@ -191,6 +191,80 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
 @keyframes bounce { 50% { transform: translateY(-5px) scale(1.06); } }
 @keyframes glow { 50% { box-shadow: 0 0 0 3px rgba(255, 218, 90, 1), 0 0 30px rgba(255, 210, 70, 1); } }
 .sprout { transition: transform 0.3s; }
+
+/* ---------- farm HUD, drawer and 3D world (all rules scoped; the Clan widget and global fonts are untouched) ---------- */
+.farm-hud:not(.farm-hud--overlay) { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 12px; }
+.farm-hud:not(.farm-hud--overlay) .seed-tray { margin: 0; }
+.farm-hud:not(.farm-hud--overlay) .farm-hud-hint { order: 3; flex-basis: 100%; margin: 0; }
+.farm-hud-menu { display: flex; gap: 6px; }
+
+/* The world fills the game viewport under the header. */
+.app-3d { max-width: none; height: 100vh; height: 100dvh; min-height: 0; padding: 8px 10px; display: flex; flex-direction: column; }
+.app-3d .topbar { flex: none; margin-bottom: 8px; }
+.app-3d .layout { flex: 1; min-height: 0; display: block; }
+.app-3d .col-farm { height: 100%; }
+/* Own stacking context below the Clan panel (z-index 50) and the drawer (40): the canvas can never cover them. */
+.farm-world {
+  position: relative; z-index: 0; isolation: isolate; overflow: hidden; height: 100%; min-height: 260px; border-radius: 16px;
+  background: linear-gradient(180deg, #bfe4f3 0, #e8f3df 55%, #cfe6a0 100%);
+}
+.farm3d { position: absolute; inset: 0; }
+.farm3d-stage { position: absolute; inset: 0; }
+.farm3d-stage canvas { display: block; touch-action: manipulation; }
+.farm3d-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-soft); font-weight: 700; }
+
+.farm-hud--overlay { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.farm-hud--overlay > * { position: absolute; pointer-events: auto; margin: 0; }
+.farm-hud--overlay .farm-hud-seeds { top: 10px; left: 10px; gap: 6px; max-width: calc(100% - 200px); }
+.farm-hud--overlay .seed-pill { min-height: 40px; background: rgba(255, 248, 230, 0.94); box-shadow: 0 2px 6px rgba(74, 47, 23, 0.18); }
+.farm-hud--overlay .seed-pill.is-selected { background: #e4f5d0; }
+.farm-hud--overlay .farm-hud-menu { top: 10px; right: 10px; }
+.farm-hud--overlay .farm-hud-menu .btn { box-shadow: 0 2px 6px rgba(74, 47, 23, 0.2); }
+.farm-hud--overlay .farm-hud-hint { left: 50%; bottom: 10px; transform: translateX(-50%); width: max-content; max-width: min(520px, calc(100% - 270px)); text-align: center; font-size: 0.85rem; padding: 6px 12px; background: rgba(233, 245, 214, 0.95); }
+
+.drawer {
+  position: fixed; z-index: 40; right: 10px; top: 140px; bottom: 76px; width: min(400px, calc(100vw - 20px));
+  overflow-y: auto; overscroll-behavior: contain;
+}
+.drawer:focus { outline: none; }
+.drawer .card h2 { padding-right: 44px; }
+.drawer-close { position: absolute; top: 12px; right: 12px; z-index: 1; width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--tan-dark); background: #fff; font-size: 1.25rem; font-weight: 800; line-height: 1; }
+
+.farm3d-floats { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 2; }
+.farm3d-float {
+  position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-weight: 800; font-size: 1.05rem;
+  padding: 2px 10px; border-radius: 999px; border: 2px solid #e8c45c; background: #fff6cf; color: var(--ink);
+  box-shadow: 0 3px 8px rgba(74, 47, 23, 0.25); opacity: 0; animation: farm3d-rise 1.6s ease-out forwards;
+}
+.farm3d-float-xp { background: #e4f5d0; border-color: #86c05a; color: #2f5a17; }
+.farm3d-float-level { background: #ffe9a8; border-color: #e0a52a; }
+@keyframes farm3d-rise {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); }
+  15% { opacity: 1; transform: translate(-50%, -70%) scale(1.05); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -230%) scale(1); }
+}
+.farm3d-pending { position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%); z-index: 3; padding: 4px 12px; border-radius: 999px; background: rgba(255, 248, 230, 0.94); border: 2px solid var(--tan-dark); font-weight: 800; font-size: 0.85rem; color: var(--ink-soft); }
+
+/* Numbered plot list: collapsed by default, still available for keyboard / screen-reader use. */
+.farm3d-plotpanel { position: absolute; left: 10px; bottom: 10px; z-index: 4; width: min(380px, calc(100% - 20px)); }
+.farm3d-plotpanel summary { display: inline-block; cursor: pointer; padding: 6px 14px; border-radius: 999px; border: 2px solid var(--tan-dark); background: rgba(255, 248, 230, 0.94); font-weight: 800; font-size: 0.85rem; list-style: none; box-shadow: 0 2px 6px rgba(74, 47, 23, 0.2); }
+.farm3d-plotpanel summary::-webkit-details-marker { display: none; }
+.farm3d-plotpanel[open] summary { margin-bottom: 6px; }
+.farm3d-plots { list-style: none; margin: 0; padding: 8px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; border-radius: 14px; background: rgba(255, 248, 230, 0.96); border: 2px solid var(--tan-dark); }
+.farm3d-chip { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 40px; padding: 4px 8px 4px 5px; border-radius: 12px; border: 2px solid var(--tan-dark); background: #fff; font-weight: 700; font-size: 0.75rem; text-align: left; }
+.farm3d-chip[aria-disabled='true'] { opacity: 0.6; cursor: progress; }
+.farm3d-chip-no { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--soil); color: #fff8e6; font-size: 0.72rem; }
+.farm3d-chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.farm3d-chip-growing, .farm3d-chip-planted { background: #eef7e0; border-color: #a9d27d; }
+.farm3d-chip-ready { background: #fff1bd; border-color: #e8b923; box-shadow: 0 0 0 2px rgba(255, 218, 90, 0.6); }
+@media (max-width: 899px) { .drawer { top: 200px; } }
+@media (max-width: 600px) {
+  .farm-hud--overlay .farm-hud-seeds { max-width: calc(100% - 150px); }
+  .farm-hud--overlay .seed-pill-name { display: none; }
+  .farm-hud--overlay .farm-hud-hint { bottom: 54px; max-width: calc(100% - 20px); }
+  .farm3d-pending { bottom: 100px; }
+}
 
 /* ---------- shop & barn ---------- */
 .rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }

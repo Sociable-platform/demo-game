@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createFarmEvents } from '../farm3d/farmEvents.js';
+import { prefers3d } from '../farm3d/webgl.js';
 import { useGame } from '../game/useGame.js';
 import { formatSeconds, nextHint, plotPhase, remainingSeconds } from '../game/plotState.js';
 import Header from './Header.jsx';
@@ -19,9 +21,16 @@ const hasSeenTutorial = (userId) => {
 };
 
 export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionExpired, notify }) {
-  const game = useGame({ notify, onSessionExpired });
+  const [farmEvents] = useState(createFarmEvents);
+  const onActionResult = useCallback((res) => farmEvents.emit(res), [farmEvents]);
+  const game = useGame({ notify, onSessionExpired, onActionResult });
   const { state, now, busy } = game;
-  const [tab, setTab] = useState('farm'); // used on small screens only
+  const [panel, setPanel] = useState(null); // 'shop' | 'barn' | null: one drawer at a time, closed by default
+  const [use3d, setUse3d] = useState(prefers3d);
+  const drawerRef = useRef(null);
+  const togglePanel = useCallback((id) => setPanel((p) => (p === id ? null : id)), []);
+  useEffect(() => { if (panel) drawerRef.current?.focus(); }, [panel]);
+  const fail3d = useCallback(() => setUse3d(false), []);
   const [selectedSeed, setSelectedSeed] = useState(null);
   const [showTutorial, setShowTutorial] = useState(() => !hasSeenTutorial(user.id));
   const [showAccountSettings, setShowAccountSettings] = useState(false);
@@ -62,22 +71,14 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
   };
 
   return (
-    <div className="app">
+    <div className={`app ${use3d ? 'app-3d' : ''}`}>
       {state ? (
         <>
           <Header player={state.player} onHelp={() => setShowTutorial(true)} onLogout={onLogout}
             onAccountSettings={() => { setShowTutorial(false); setShowAccountSettings(true); }} />
 
-          <nav className="tabs" aria-label="Sections">
-            {[['farm', 'Farm'], ['shop', 'Seed Shop'], ['barn', 'Barn']].map(([id, label]) => (
-              <button key={id} type="button" className={tab === id ? 'is-active' : ''} aria-current={tab === id} onClick={() => setTab(id)}>
-                {label}
-              </button>
-            ))}
-          </nav>
-
           <main className="layout">
-            <div className={`col-farm tab-panel ${tab === 'farm' ? 'is-active' : ''}`}>
+            <div className="col-farm">
               <Farm
                 state={state}
                 now={now}
@@ -85,17 +86,30 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
                 onSelectSeed={setSelectedSeed}
                 onPlotClick={onPlotClick}
                 hint={nextHint(state, now)}
+                busy={busy}
+                events={farmEvents}
+                use3d={use3d}
+                onFail3d={fail3d}
+                panel={panel}
+                onTogglePanel={togglePanel}
               />
             </div>
-            <div className="col-side">
-              <div className={`tab-panel ${tab === 'shop' ? 'is-active' : ''}`}>
-                <Shop state={state} busy={busy} onBuy={game.buy} />
-              </div>
-              <div className={`tab-panel ${tab === 'barn' ? 'is-active' : ''}`}>
-                <Barn state={state} busy={busy} onSell={game.sell} />
-              </div>
-            </div>
           </main>
+
+          {panel && (
+            <aside
+              id="farm-drawer"
+              ref={drawerRef}
+              tabIndex={-1}
+              className="drawer"
+              role="dialog"
+              aria-label={panel === 'shop' ? 'Seed Shop' : 'Barn'}
+              onKeyDown={(e) => { if (e.key === 'Escape') setPanel(null); }}
+            >
+              <button type="button" className="drawer-close" aria-label="Close panel" onClick={() => setPanel(null)}>×</button>
+              {panel === 'shop' ? <Shop state={state} busy={busy} onBuy={game.buy} /> : <Barn state={state} busy={busy} onSell={game.sell} />}
+            </aside>
+          )}
         </>
       ) : (
         <p className="loading">Loading your farm…</p>
