@@ -22,7 +22,7 @@ export function createGameRouter(game: GameService, requireAuth: RequestHandler)
 
   router.post('/shop/buy', (req, res) => {
     const body = buySchema.parse(req.body);
-    res.json(game.buySeeds(req.auth!.userId, body.cropId, body.quantity));
+    res.json(game.buyCrops(req.auth!.userId, body.cropId, body.quantity));
   });
 
   router.post('/plots/:plotIndex/plant', (req, res) => {

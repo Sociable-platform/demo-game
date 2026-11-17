@@ -51,6 +51,16 @@ export const api = {
   plant: (plotIndex, cropId) => request('POST', `/game/plots/${plotIndex}/plant`, { cropId }),
   harvest: (plotIndex) => request('POST', `/game/plots/${plotIndex}/harvest`, {}),
   sell: (cropId, quantity) => request('POST', '/game/sell', { cropId, quantity }),
+  quest: () => request('GET', '/quest'),
+  questContribute: (quantity, idempotencyKey) => request('POST', '/quest/contribute', { quantity, idempotencyKey }),
+  personalQuestClaim: (id) => request('POST', `/personal-quests/${encodeURIComponent(id)}/claim`, {}),
+  questClaim: () => request('POST', '/quest/claim', {}),
+  market: () => request('GET', '/market'),
+  marketCreate: (offer) => request('POST', '/market/listings', offer),
+  marketCancel: (id) => request('POST', `/market/listings/${encodeURIComponent(id)}/cancel`, {}),
+  marketBuy: (id) => request('POST', `/market/listings/${encodeURIComponent(id)}/buy`, {}),
+  delivery: () => request('GET', '/delivery'),
+  deliveryClaim: (id) => request('POST', `/delivery/${encodeURIComponent(id)}/claim`, {}),
   devDemoAccounts: (reset = false) => request('POST', '/dev/demo-accounts', { reset }),
 };
 

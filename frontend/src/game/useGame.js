@@ -10,12 +10,14 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
  * - `now` is server-adjusted time, refreshed 4x per second, used only to DRAW progress.
  * - `busy` blocks overlapping requests (double clicks); the server independently guards against duplicates.
  */
-export function useGame({ notify, onSessionExpired }) {
+export function useGame({ notify, onSessionExpired, onActionResult }) {
   const [state, setState] = useState(null);
   const [now, setNow] = useState(() => Date.now());
   const offsetRef = useRef(0);
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
+  const resultRef = useRef(onActionResult);
+  useEffect(() => { resultRef.current = onActionResult; }, [onActionResult]);
   const alive = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
@@ -66,17 +68,20 @@ export function useGame({ notify, onSessionExpired }) {
 
   const run = useCallback(
     async (call, onSuccess) => {
-      if (busyRef.current) return;
+      if (busyRef.current) return { ok: false, err: null };
       busyRef.current = true;
       setBusy(true);
       try {
         const res = await call();
-        if (!alive.current) return;
+        if (!alive.current) return { ok: true };
         apply(res.state);
         onSuccess(res);
+        try { resultRef.current?.(res); } catch { /* visual effects must never break a confirmed action */ }
+        return { ok: true };
       } catch (err) {
         fail(err);
         if (err.status === 409) await refresh(); // our view was stale (e.g. crop not actually ready)
+        return { ok: false, err };
       } finally {
         busyRef.current = false;
         if (alive.current) setBusy(false);
@@ -95,7 +100,7 @@ export function useGame({ notify, onSessionExpired }) {
     buy: (cropId, quantity) =>
       run(
         () => api.buy(cropId, quantity),
-        (r) => notify('success', `Bought ${plural(r.quantity, cropName(cropId) + ' seed')} for ${r.coinsSpent} coins.`),
+        (r) => notify('success', `Bought ${r.quantity} ${cropName(cropId)}${r.quantity === 1 ? '' : 's'} for ${r.coinsSpent} coins.`),
       ),
     plant: (plotIndex, cropId) =>
       run(
@@ -106,10 +111,56 @@ export function useGame({ notify, onSessionExpired }) {
       run(
         () => api.harvest(plotIndex),
         (r) => {
-          notify('success', `Harvested ${cropName(r.cropId)}! +${r.xpGained} XP`);
+          const n = Number.isInteger(r.yield) && r.yield > 0 ? r.yield : 1;
+          notify('success', `Harvested ${n} ${cropName(r.cropId)}${n === 1 ? '' : 's'}! +${r.xpGained} XP`);
           if (r.leveledUp) notify('success', `Level up! You reached level ${r.newLevel}.`);
         },
       ),
+    // Clan quest: the server decides the clan, the accepted amount and the reward; we only render the answer.
+    contributeQuest: (quantity, idempotencyKey) =>
+      run(
+        () => api.questContribute(quantity, idempotencyKey),
+        (r) => notify('success', `Contributed ${plural(r.accepted, 'carrot')} to the Village Festival.`),
+      ),
+    claimQuest: () =>
+      run(
+        () => api.questClaim(),
+        (r) => notify('success', r.coinsGranted > 0 ? `Reward claimed: +${r.coinsGranted} coins!` : 'Reward already claimed.'),
+      ),
+    // Kiosk (player-to-player market). The server verifies clan/friends and moves coins and crops atomically.
+    marketOffer: (offer) =>
+      run(
+        () => api.marketCreate(offer),
+        () => notify('success', `Offer posted: ${offer.quantity} ${cropName(offer.cropId)} for ${offer.price} coins.`),
+      ),
+    marketCancel: (id) =>
+      run(
+        () => api.marketCancel(id),
+        (r) => notify('info', r.cancelled ? 'Offer cancelled. Your crops are back in the barn.' : 'That offer was already closed.'),
+      ),
+    marketBuy: (id) =>
+      run(
+        () => api.marketBuy(id),
+        (r) => notify('success', `Bought ${r.quantity} ${cropName(r.cropId)} from ${r.seller} for ${r.price} coins.`),
+      ),
+    // Personal level quest: the server validates progress and pays XP + coins once; the state it returns updates the HUD.
+    claimPersonalQuest: (questId) =>
+      run(
+        () => api.personalQuestClaim(questId),
+        (r) => {
+          if (!r.granted) return notify('info', 'That quest reward was already claimed.');
+          notify('success', `Quest complete! +${r.reward.xp} XP, +${r.reward.coins} coins`);
+          if (r.leveledUp) notify('success', `Level up! You reached level ${r.newLevel}.`);
+          return undefined;
+        },
+      ),
+    // Courier delivery: only the delivery id is sent. The server decides and returns the reward; state is replaced
+    // by the authoritative state in `run`. Resolves { ok, granted, reward, err }; never rejects.
+    claimDelivery: async (id) => {
+      let reply = null;
+      const r = await run(() => api.deliveryClaim(id), (res) => { reply = res; });
+      return r.ok && reply ? { ok: true, granted: Boolean(reply.granted), reward: reply.reward } : { ok: false, granted: false, err: r.err };
+    },
     sell: (cropId, quantity) =>
       run(
         () => api.sell(cropId, quantity),

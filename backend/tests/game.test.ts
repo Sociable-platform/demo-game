@@ -8,35 +8,41 @@ const setup = async () => {
 };
 
 describe('starting state', () => {
-  it('gives a new player coins, carrot seeds, an empty 3x3 farm and level 1', async () => {
+  it('gives a new player coins, 3 carrots to plant, an empty 3x3 farm and level 1', async () => {
     const { alice } = await setup();
     const res = await alice.agent.get('/api/game/state');
     expect(res.status).toBe(200);
     expect(res.body.player).toMatchObject({ username: 'alice', coins: 50, xp: 0, level: 1 });
     expect(res.body.farm.plots).toHaveLength(9);
     expect(res.body.farm.plots.every((p: { state: string }) => p.state === 'empty')).toBe(true);
-    expect(res.body.inventory.seeds).toMatchObject({ carrot: 3, tomato: 0, pumpkin: 0 });
-    expect(res.body.catalog).toHaveLength(3);
+    expect(res.body.inventory.crops).toMatchObject({ carrot: 3, tomato: 0, potato: 0, pumpkin: 0 });
+    expect(res.body.inventory.seeds).toBeUndefined(); // a crop is also what you plant: there are no separate seeds
+    expect(res.body.catalog).toHaveLength(4);
   });
 });
 
-describe('buying seeds', () => {
-  it('spends coins and adds seeds', async () => {
+describe('buying crops in the shop', () => {
+  it('spends coins and adds the crop to the inventory', async () => {
     const { alice } = await setup();
-    const res = await alice.agent.post('/api/game/shop/buy').send({ cropId: 'tomato', quantity: 2 });
+    const res = await alice.agent.post('/api/game/shop/buy').send({ cropId: 'carrot', quantity: 2 });
     expect(res.status).toBe(200);
-    expect(res.body.state.player.coins).toBe(0);
-    expect(res.body.state.inventory.seeds.tomato).toBe(2);
+    expect(res.body.state.player.coins).toBe(6); // 2 x 22
+    expect(res.body.state.inventory.crops.carrot).toBe(5);
   });
 
   it('refuses when coins are insufficient, without changing anything', async () => {
     const { alice } = await setup();
-    const res = await alice.agent.post('/api/game/shop/buy').send({ cropId: 'tomato', quantity: 3 });
+    const res = await alice.agent.post('/api/game/shop/buy').send({ cropId: 'tomato', quantity: 1 });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('insufficient_coins');
     const state = (await alice.agent.get('/api/game/state')).body;
     expect(state.player.coins).toBe(50);
-    expect(state.inventory.seeds.tomato).toBe(0);
+    expect(state.inventory.crops.tomato).toBe(0);
+  });
+
+  it('never lets buying and re-selling a crop make coins', async () => {
+    const { CROP_LIST } = await import('../src/game/catalog.js');
+    for (const c of CROP_LIST) expect(c.buyPrice).toBeGreaterThan(c.sellPrice);
   });
 
   it('locks pumpkins until level 2 and validates input', async () => {
@@ -53,7 +59,7 @@ describe('buying seeds', () => {
   });
 });
 
-describe('the full loop: buy -> plant -> grow -> harvest -> sell', () => {
+describe('the full loop: plant a crop -> grow -> harvest crops -> sell', () => {
   it('works end to end using server timestamps', async () => {
     const { alice, clock } = await setup();
     const plant = await alice.agent.post('/api/game/plots/4/plant').send({ cropId: 'carrot' });
@@ -61,7 +67,7 @@ describe('the full loop: buy -> plant -> grow -> harvest -> sell', () => {
     const plot = plant.body.state.farm.plots[4];
     expect(plot).toMatchObject({ state: 'growing', cropId: 'carrot' });
     expect(plot.readyAt - plot.plantedAt).toBe(15_000);
-    expect(plant.body.state.inventory.seeds.carrot).toBe(2);
+    expect(plant.body.state.inventory.crops.carrot).toBe(2); // planting uses up one carrot
 
     clock.advance(14_000);
     const early = await alice.agent.post('/api/game/plots/4/harvest');
@@ -73,7 +79,7 @@ describe('the full loop: buy -> plant -> grow -> harvest -> sell', () => {
     expect((await alice.agent.get('/api/game/state')).body.farm.plots[4].state).toBe('ready');
     const harvest = await alice.agent.post('/api/game/plots/4/harvest');
     expect(harvest.status).toBe(200);
-    expect(harvest.body.state.inventory.crops.carrot).toBe(1);
+    expect(harvest.body.state.inventory.crops.carrot).toBe(3); // 3 - 1 planted + 1 harvested
     expect(harvest.body.state.player.xp).toBe(8);
     expect(harvest.body.state.farm.plots[4].state).toBe('empty');
 
@@ -81,12 +87,12 @@ describe('the full loop: buy -> plant -> grow -> harvest -> sell', () => {
     expect(sell.status).toBe(200);
     expect(sell.body.coinsEarned).toBe(18);
     expect(sell.body.state.player.coins).toBe(68);
-    expect(sell.body.state.inventory.crops.carrot).toBe(0);
+    expect(sell.body.state.inventory.crops.carrot).toBe(2); // sold one of three
   });
 
   it('levels up from harvesting and unlocks pumpkins', async () => {
-    const { alice, clock } = await setup();
-    await alice.agent.post('/api/game/shop/buy').send({ cropId: 'tomato', quantity: 2 }); // 50 coins -> 0
+    const { alice, clock, db } = await setup();
+    db.prepare("INSERT INTO inventory (user_id, kind, crop_id, quantity) VALUES (?, 'crop', 'tomato', 2)").run(alice.user.id); // tomatoes to plant
     for (let i = 0; i < 3; i++) await alice.agent.post(`/api/game/plots/${i}/plant`).send({ cropId: 'carrot' });
     await alice.agent.post('/api/game/plots/3/plant').send({ cropId: 'tomato' });
     await alice.agent.post('/api/game/plots/4/plant').send({ cropId: 'tomato' });
@@ -117,14 +123,14 @@ describe('the full loop: buy -> plant -> grow -> harvest -> sell', () => {
     expect((await alice.agent.post('/api/game/plots/-1/harvest')).body.error.code).toBe('plot_not_found');
     expect((await alice.agent.post('/api/game/plots/abc/harvest')).status).toBe(400);
     expect((await alice.agent.post('/api/game/plots/0/harvest')).body.error.code).toBe('plot_empty');
-    expect((await alice.agent.post('/api/game/plots/0/plant').send({ cropId: 'tomato' })).body.error.code).toBe('insufficient_seeds');
+    expect((await alice.agent.post('/api/game/plots/0/plant').send({ cropId: 'tomato' })).body.error.code).toBe('insufficient_crops');
     await alice.agent.post('/api/game/plots/0/plant').send({ cropId: 'carrot' });
     const occupied = await alice.agent.post('/api/game/plots/0/plant').send({ cropId: 'carrot' });
     expect(occupied.body.error.code).toBe('plot_occupied');
-    // a failed plant must not have consumed the seed
-    expect((await alice.agent.get('/api/game/state')).body.inventory.seeds.carrot).toBe(2);
-    expect((await alice.agent.post('/api/game/sell').send({ cropId: 'carrot', quantity: 1 })).body.error.code).toBe('insufficient_crops');
-    expect((await alice.agent.post('/api/game/sell').send({ cropId: 'carrot', quantity: 'all' })).body.error.code).toBe('insufficient_crops');
+    // a failed plant must not have consumed the crop
+    expect((await alice.agent.get('/api/game/state')).body.inventory.crops.carrot).toBe(2);
+    expect((await alice.agent.post('/api/game/sell').send({ cropId: 'tomato', quantity: 1 })).body.error.code).toBe('insufficient_crops');
+    expect((await alice.agent.post('/api/game/sell').send({ cropId: 'tomato', quantity: 'all' })).body.error.code).toBe('insufficient_crops');
   });
 });
 
@@ -137,26 +143,26 @@ describe('duplicate-action protection (parallel requests)', () => {
     expect(results.filter((r) => r.status === 200)).toHaveLength(1);
     expect(results.filter((r) => r.status === 409)).toHaveLength(11);
     const state = (await alice.agent.get('/api/game/state')).body;
-    expect(state.inventory.crops.carrot).toBe(1);
+    expect(state.inventory.crops.carrot).toBe(3); // 3 - 1 planted + 1 harvested, paid once
     expect(state.player.xp).toBe(8);
   });
 
   it('cannot spend the same coins twice with parallel purchases', async () => {
     const { alice } = await setup();
-    // 50 coins; each request costs 40 (4 carrot seeds)
-    const results = await Promise.all(Array.from({ length: 8 }, () => alice.agent.post('/api/game/shop/buy').send({ cropId: 'carrot', quantity: 4 })));
+    // 50 coins; each request costs 44 (2 carrots)
+    const results = await Promise.all(Array.from({ length: 8 }, () => alice.agent.post('/api/game/shop/buy').send({ cropId: 'carrot', quantity: 2 })));
     expect(results.filter((r) => r.status === 200)).toHaveLength(1);
     const state = (await alice.agent.get('/api/game/state')).body;
-    expect(state.player.coins).toBe(10);
-    expect(state.inventory.seeds.carrot).toBe(3 + 4);
+    expect(state.player.coins).toBe(6);
+    expect(state.inventory.crops.carrot).toBe(3 + 2);
   });
 
-  it('cannot plant one seed into several plots, or sell the same crop twice', async () => {
+  it('cannot plant one crop into several plots, or sell the same crop twice', async () => {
     const { alice, clock, db } = await setup();
-    db.prepare("UPDATE inventory SET quantity = 1 WHERE kind = 'seed' AND crop_id = 'carrot'").run();
+    db.prepare("UPDATE inventory SET quantity = 1 WHERE kind = 'crop' AND crop_id = 'carrot'").run();
     const plants = await Promise.all(Array.from({ length: 9 }, (_, i) => alice.agent.post(`/api/game/plots/${i}/plant`).send({ cropId: 'carrot' })));
     expect(plants.filter((r) => r.status === 200)).toHaveLength(1);
-    expect((await alice.agent.get('/api/game/state')).body.inventory.seeds.carrot).toBe(0);
+    expect((await alice.agent.get('/api/game/state')).body.inventory.crops.carrot).toBe(0);
 
     clock.advance(15_000);
     const idx = (await alice.agent.get('/api/game/state')).body.farm.plots.findIndex((p: any) => p.cropId);
@@ -179,13 +185,13 @@ describe('player isolation', () => {
     const { app, alice } = await setup();
     const bob = await signup(app, 'bob');
     await alice.agent.post('/api/game/plots/0/plant').send({ cropId: 'carrot' });
-    await alice.agent.post('/api/game/shop/buy').send({ cropId: 'tomato', quantity: 1 });
+    await alice.agent.post('/api/game/shop/buy').send({ cropId: 'carrot', quantity: 1 });
 
     const bobState = (await bob.agent.get('/api/game/state')).body;
     expect(bobState.player.id).toBe(bob.user.id);
     expect(bobState.player.coins).toBe(50);
     expect(bobState.farm.plots[0].state).toBe('empty');
-    expect(bobState.inventory.seeds.tomato).toBe(0);
+    expect(bobState.inventory.crops.carrot).toBe(3); // untouched by alice's actions
 
     // spoofing attempts: body, query string, headers
     const spoof = await bob.agent
@@ -230,5 +236,78 @@ describe('persistence', () => {
     expect(after.inventory).toEqual(before.inventory);
     expect(after.farm.plots[2]).toMatchObject({ cropId: 'carrot', plantedAt: before.farm.plots[2].plantedAt, readyAt: before.farm.plots[2].readyAt, state: 'ready' });
     expect((await again.post('/api/game/plots/2/harvest')).status).toBe(200);
+  });
+});
+
+describe('random harvest yield', () => {
+  const harvestWith = async (yields: number[]) => {
+    const queue = [...yields];
+    const ctx = makeApp({ rollYield: () => queue.shift() ?? 1 });
+    const { agent, user } = await signup(ctx.app, 'yielder');
+    const go = async () => {
+      ctx.db.prepare("UPDATE farm_plots SET crop_id = 'carrot', planted_at = 1, ready_at = 2 WHERE user_id = ? AND plot_index = 0").run(user.id);
+      return agent.post('/api/game/plots/0/harvest');
+    };
+    return { ...ctx, agent, user, go };
+  };
+
+  it('adds the rolled number of crops, reports it, and keeps XP per harvest', async () => {
+    const { go, db } = await harvestWith([4, 1, 5]);
+    try {
+      const a = await go();
+      expect(a.body).toMatchObject({ yield: 4, xpGained: 8 });
+      expect(a.body.state.inventory.crops.carrot).toBe(7); // 3 starting + 4 harvested
+      expect((await go()).body.yield).toBe(1);
+      const c = await go();
+      expect(c.body.state.inventory.crops.carrot).toBe(13);
+      expect(c.body.state.player.xp).toBe(24);
+      // quest progress counts the crops collected (capped at the target)
+      expect(c.body.state.personalQuests[0].objectives[0].progress).toBe(10);
+    } finally { db.close(); }
+  });
+
+  it('really yields 1 to 5 with the default random roll, and every value occurs', async () => {
+    // makeApp injects a fixed yield, so build an app with the production roller instead.
+    const { createApp } = await import('../src/app.js');
+    const { openDb } = await import('../src/db/connection.js');
+    const { migrate } = await import('../src/db/migrate.js');
+    const { loadConfig } = await import('../src/config.js');
+    const db = openDb(':memory:'); migrate(db);
+    const app = createApp({ config: loadConfig({ RATE_LIMIT: 'false' } as NodeJS.ProcessEnv), db });
+    try {
+      const { agent, user } = await signup(app, 'rolls');
+      const seen = new Set<number>();
+      for (let i = 0; i < 120; i++) {
+        db.prepare("UPDATE farm_plots SET crop_id = 'carrot', planted_at = 1, ready_at = 2 WHERE user_id = ? AND plot_index = 0").run(user.id);
+        const n = (await agent.post('/api/game/plots/0/harvest')).body.yield as number;
+        expect(Number.isInteger(n) && n >= 1 && n <= 5).toBe(true);
+        seen.add(n);
+      }
+      expect([...seen].sort()).toEqual([1, 2, 3, 4, 5]);
+    } finally { db.close(); }
+  });
+});
+
+describe('seeds are the same item as crops (migration 008)', () => {
+  it('folds existing seed rows into the crop rows and removes them', async () => {
+    const { mkdtempSync, copyFileSync, readdirSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { openDb } = await import('../src/db/connection.js');
+    const { migrate } = await import('../src/db/migrate.js');
+    const dir = mkdtempSync(join(tmpdir(), 'hv-inv-'));
+    const src = new URL('../src/db/migrations/', import.meta.url);
+    for (const f of readdirSync(src).filter((f) => f < '008')) copyFileSync(new URL(f, src), join(dir, f));
+    const db = openDb(':memory:');
+    migrate(db, dir);
+    db.prepare("INSERT INTO users (id, username, password_hash, created_at) VALUES ('u1', 'old', 'x', 1)").run();
+    const ins = db.prepare('INSERT INTO inventory (user_id, kind, crop_id, quantity) VALUES (?, ?, ?, ?)');
+    ins.run('u1', 'seed', 'carrot', 3); ins.run('u1', 'crop', 'carrot', 4); ins.run('u1', 'seed', 'tomato', 2); ins.run('u1', 'seed', 'pumpkin', 0);
+    expect(migrate(db)).toEqual(['008_unify_inventory.sql']);
+    expect(db.prepare('SELECT kind, crop_id, quantity FROM inventory ORDER BY crop_id').all()).toEqual([
+      { kind: 'crop', crop_id: 'carrot', quantity: 7 },
+      { kind: 'crop', crop_id: 'tomato', quantity: 2 },
+    ]);
+    db.close();
   });
 });
