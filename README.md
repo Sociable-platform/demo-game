@@ -487,6 +487,7 @@ Failure behavior:
 | Missing/expired game session | 401 `unauthorized` |
 | Missing or invalid Clan settings | 503 `clan_not_configured` |
 | Platform HTTP failure, network failure, redirect, or malformed token response | 502 `clan_upstream_error` |
+| Platform 403 `game_suspended` or `account_suspended` (the game or its developer is suspended) | 403 `game_suspended` |
 | Five-second deadline exceeded (including response-body loading) | 504 `clan_upstream_timeout` |
 
 Upstream details/headers are not forwarded or logged. In particular, a rejected API key does not become a game
