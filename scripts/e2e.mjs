@@ -72,8 +72,11 @@ try {
   console.log('Isolation');
   r = await alice.call('POST', '/game/plots/0/plant', { cropId: 'carrot' });
   check('alice plants a carrot in plot 0', r.status === 200 && r.body.state.farm.plots[0].state === 'growing');
+  const plantedState = r.body.state;
+  const carrot = plantedState.catalog.find((crop) => crop.id === 'carrot');
   const bobState = (await bob.call('GET', `/game/state?userId=${aliceId}`)).body;
-  check("bob's farm is untouched and he sees his own identity", bobState.player.id === bobId && bobState.farm.plots[0].state === 'empty' && bobState.inventory.seeds.carrot === 3);
+  check("bob's farm is untouched and he sees his own identity", bobState.player.id === bobId && bobState.farm.plots[0].state === 'empty' && bobState.inventory.crops.carrot === 3);
+  check('planting consumes one crop from the unified inventory', plantedState.inventory.crops.carrot === bobState.inventory.crops.carrot - 1 && !Object.hasOwn(plantedState.inventory, 'seeds'));
   r = await bob.call('POST', `/game/plots/0/harvest?userId=${aliceId}`, { userId: aliceId });
   check("bob cannot harvest alice's plot by passing her id (acts on his own empty plot)", r.status === 409 && r.body.error.code === 'plot_empty');
 
@@ -82,8 +85,9 @@ try {
   check('harvest before ready is refused (not_ready)', r.status === 409 && r.body.error.code === 'not_ready');
   r = await alice.call('POST', '/game/shop/buy', { cropId: 'tomato', quantity: 99 });
   check('buying more than affordable is refused (insufficient_coins / validation)', r.status === 409 || r.status === 400);
-  r = await alice.call('POST', '/game/shop/buy', { cropId: 'carrot', quantity: 4 });
-  check('buy 4 carrot seeds (40 coins)', r.status === 200 && r.body.state.player.coins === 10);
+  r = await alice.call('POST', '/game/shop/buy', { cropId: 'carrot', quantity: 1 });
+  check('buy one carrot at the catalog price', r.status === 200 && r.body.coinsSpent === carrot.buyPrice && r.body.state.player.coins === plantedState.player.coins - carrot.buyPrice && r.body.state.inventory.crops.carrot === plantedState.inventory.crops.carrot + 1);
+  const beforeHarvest = r.body.state;
   const t0 = Date.now();
   while (true) {
     const s = (await alice.call('GET', '/game/state')).body;
@@ -97,19 +101,28 @@ try {
   const results = await Promise.all(Array.from({ length: 15 }, () => alice.call('POST', '/game/plots/0/harvest')));
   const wins = results.filter((x) => x.status === 200).length;
   check('exactly one harvest succeeds', wins === 1, `(got ${wins})`);
+  check('duplicate harvests are rejected as empty plots', results.filter((x) => x.status === 409 && x.body.error.code === 'plot_empty').length === results.length - 1);
+  const harvest = results.find((x) => x.status === 200)?.body;
+  check('harvest reports a whole-number yield between 1 and 5', Number.isInteger(harvest?.yield) && harvest.yield >= 1 && harvest.yield <= 5);
   let s = (await alice.call('GET', '/game/state')).body;
-  check('inventory has exactly 1 carrot and 8 XP', s.inventory.crops.carrot === 1 && s.player.xp === 8);
+  check('inventory and XP receive exactly the confirmed harvest reward once', s.inventory.crops.carrot === beforeHarvest.inventory.crops.carrot + harvest?.yield && s.player.xp === beforeHarvest.player.xp + carrot.xpReward && harvest?.xpGained === carrot.xpReward && s.player.coins === beforeHarvest.player.coins);
 
   console.log('Duplicate-spend protection (parallel buys & sells)');
-  // coins now 10: ten parallel purchases of 1 carrot seed (10 coins each) -> only one can succeed
+  const beforeBuys = s;
+  // Spend the same wallet concurrently; the catalog, not an obsolete fixed price, defines affordability.
+  const affordableBuys = Math.min(10, Math.floor(beforeBuys.player.coins / carrot.buyPrice));
+  check('fixture wallet can fund exactly one concurrent purchase', affordableBuys === 1);
   const buys = await Promise.all(Array.from({ length: 10 }, () => alice.call('POST', '/game/shop/buy', { cropId: 'carrot', quantity: 1 })));
-  check('only one parallel purchase succeeds with 10 coins', buys.filter((x) => x.status === 200).length === 1);
+  check('parallel purchases cannot spend the same coins twice', buys.filter((x) => x.status === 200).length === affordableBuys);
   s = (await alice.call('GET', '/game/state')).body;
-  check('coins never go negative (0 left)', s.player.coins === 0);
-  const sells = await Promise.all(Array.from({ length: 8 }, () => alice.call('POST', '/game/sell', { cropId: 'carrot', quantity: 1 })));
-  check('the single harvested carrot can only be sold once', sells.filter((x) => x.status === 200).length === 1);
+  check('wallet and inventory match successful purchases', s.player.coins >= 0 && s.player.coins === beforeBuys.player.coins - affordableBuys * carrot.buyPrice && s.inventory.crops.carrot === beforeBuys.inventory.crops.carrot + affordableBuys);
+  const beforeSells = s;
+  // Unified inventory includes unplanted starting/bought crops as well as the random harvest.
+  // Selling all of it in each request still permits exactly one payout.
+  const sells = await Promise.all(Array.from({ length: 8 }, () => alice.call('POST', '/game/sell', { cropId: 'carrot', quantity: 'all' })));
+  check('the entire carrot inventory can only be sold once', sells.filter((x) => x.status === 200).length === 1);
   s = (await alice.call('GET', '/game/state')).body;
-  check('coins = 18 after selling one carrot', s.player.coins === 18 && s.inventory.crops.carrot === 0);
+  check('sale pays the catalog value exactly once and clears those crops', s.player.coins === beforeSells.player.coins + beforeSells.inventory.crops.carrot * carrot.sellPrice && s.inventory.crops.carrot === 0);
   const before = s;
 
   console.log('Persistence: logout/login and backend restart');
@@ -122,7 +135,7 @@ try {
   r = await alice.call('POST', '/auth/login', { username: 'e2e_alice', password: 'alice-password-1' });
   check('login works after backend restart', r.status === 200 && r.body.user.id === aliceId);
   s = (await alice.call('GET', '/game/state')).body;
-  check('coins, xp, seeds and crops survived restart', s.player.coins === before.player.coins && s.player.xp === before.player.xp && JSON.stringify(s.inventory) === JSON.stringify(before.inventory));
+  check('coins, xp and crop inventory survived restart', s.player.coins === before.player.coins && s.player.xp === before.player.xp && JSON.stringify(s.inventory) === JSON.stringify(before.inventory));
   const bobAfter = await bob.call('GET', '/game/state'); // bob's old session cookie should also survive the restart
   check("bob's session survived the restart and his farm is intact", bobAfter.status === 200 && bobAfter.body.player.id === bobId && bobAfter.body.player.coins === 50);
 
