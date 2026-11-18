@@ -2,7 +2,20 @@
    toggle, rather than letting it cover the Open/Hide button at viewport bottom.
    Keep this component rule more specific than the legacy global panel rule. */
 .community-clans > .community-clan-panel {
-  height: min(560px, calc(100dvh - 100px));
+  /* A game-owned compact presentation; the SDK's Shadow DOM stays unchanged.
+     Compensate viewport limits before scaling, so the visible panel still fits. */
+  --clan-widget-scale: 0.9;
+  width: min(390px, calc((100vw - 32px) / var(--clan-widget-scale)));
+  height: min(560px, calc((100dvh - 100px) / var(--clan-widget-scale)));
+  transform: scale(var(--clan-widget-scale));
+  transform-origin: bottom right;
   contain: layout;
   overflow: hidden;
+}
+
+/* Keep small-screen text and touch targets at the SDK's normal size. */
+@media (max-width: 480px) {
+  .community-clans > .community-clan-panel {
+    --clan-widget-scale: 1;
+  }
 }
