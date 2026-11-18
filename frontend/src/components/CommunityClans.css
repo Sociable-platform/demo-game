@@ -1,0 +1,8 @@
+/* The SDK host is fixed-positioned. Contain it in the space above the game
+   toggle, rather than letting it cover the Open/Hide button at viewport bottom.
+   Keep this component rule more specific than the legacy global panel rule. */
+.community-clans > .community-clan-panel {
+  height: min(560px, calc(100dvh - 100px));
+  contain: layout;
+  overflow: hidden;
+}
