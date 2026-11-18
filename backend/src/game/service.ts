@@ -9,11 +9,11 @@ import {
   GRID_SIZE,
   HARVEST_YIELD,
   STARTING_COINS,
-  STARTING_CROPS,
   levelFromXp,
   levelProgress,
   type Crop,
 } from './catalog.js';
+import { grantUnlockedCrops } from './unlocks.js';
 import { activateEligible, nextActivatable, readQuests, recordHarvest } from '../personal-quests/progress.js';
 
 /**
@@ -133,7 +133,7 @@ export function createGameService(
       );
       const plot = db.prepare('INSERT INTO farm_plots (user_id, plot_index) VALUES (?, ?)');
       for (let i = 0; i < GRID_SIZE; i++) plot.run(userId, i);
-      for (const [cropId, qty] of Object.entries(STARTING_CROPS)) addInventory(userId, cropId, qty);
+      grantUnlockedCrops(db, userId, 0, 1); // the level 1 crops
       activateEligible(db, userId, 1, now()); // the first personal quest is active from the start
     },
 
@@ -209,6 +209,7 @@ export function createGameService(
       touch(userId);
       const levelBefore = levelFromXp(xpBefore);
       const levelAfter = levelFromXp(xpBefore + crop.xpReward);
+      const unlockedCrops = levelAfter > levelBefore ? grantUnlockedCrops(db, userId, levelBefore, levelAfter) : []; // crops that unlock at the new level
       activateEligible(db, userId, levelAfter, t); // a quest unlocked by this level-up starts counting from the next harvest
       return {
         action: 'harvest',
@@ -218,6 +219,7 @@ export function createGameService(
         xpGained: crop.xpReward,
         leveledUp: levelAfter > levelBefore,
         newLevel: levelAfter,
+        unlockedCrops,
         state: readState(userId),
       };
     }),

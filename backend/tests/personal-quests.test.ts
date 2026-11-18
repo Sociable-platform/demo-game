@@ -56,7 +56,7 @@ describe('potatoes', () => {
       const { agent, user } = await signup(t.app, 'q_pat');
       const state = (await agent.get('/api/game/state')).body;
       expect(state.catalog.find((c: { id: string }) => c.id === 'potato')).toMatchObject({ unlockLevel: 2, buyPrice: 38, sellPrice: 32, growthSeconds: 20, xpReward: 12 });
-      expect(state.inventory.crops.potato).toBe(0);
+      expect(state.inventory.crops.potato ?? 0).toBe(0);
       expect((await agent.post('/api/game/shop/buy').send({ cropId: 'potato', quantity: 1 })).body.error.code).toBe('level_too_low');
       t.setXp(user.id, xpForLevel(2));
       t.db.prepare('UPDATE players SET coins = 100 WHERE user_id = ?').run(user.id);

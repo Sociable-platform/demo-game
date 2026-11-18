@@ -57,10 +57,11 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
   useEffect(() => {
     if (!state) return;
     const owned = state.inventory.crops;
-    if (selectedSeed && owned[selectedSeed] > 0) return;
-    const firstOwned = state.catalog.find((c) => owned[c.id] > 0);
+    const open = state.catalog.filter((c) => c.unlockLevel <= state.player.level); // crops not unlocked yet are not offered
+    if (selectedSeed && owned[selectedSeed] > 0 && open.some((c) => c.id === selectedSeed)) return;
+    const firstOwned = open.find((c) => owned[c.id] > 0);
     if (firstOwned) setSelectedSeed(firstOwned.id);
-    else if (!selectedSeed) setSelectedSeed(state.catalog[0].id);
+    else if (!selectedSeed || !open.some((c) => c.id === selectedSeed)) setSelectedSeed(open[0]?.id ?? state.catalog[0].id);
   }, [state, selectedSeed]);
 
   const onPlotClick = (plot) => {
