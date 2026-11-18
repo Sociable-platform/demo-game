@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { getClanPlayerToken } from '../api.js';
 import { mountClanWidget } from '../community/mountClanWidget.js';
+import './CommunityClans.css';
 
 function DiscoverPanel({ notify }) {
   const container = useRef(null);

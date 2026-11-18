@@ -8,14 +8,16 @@ const setup = async () => {
 };
 
 describe('starting state', () => {
-  it('gives a new player coins, 3 carrots to plant, an empty 3x3 farm and level 1', async () => {
+  it('gives a new player coins, the level 1 crops to plant, an empty 3x3 farm and level 1', async () => {
     const { alice } = await setup();
     const res = await alice.agent.get('/api/game/state');
     expect(res.status).toBe(200);
     expect(res.body.player).toMatchObject({ username: 'alice', coins: 50, xp: 0, level: 1 });
     expect(res.body.farm.plots).toHaveLength(9);
     expect(res.body.farm.plots.every((p: { state: string }) => p.state === 'empty')).toBe(true);
-    expect(res.body.inventory.crops).toMatchObject({ carrot: 3, tomato: 0, potato: 0, pumpkin: 0 });
+    expect(res.body.inventory.crops).toMatchObject({ carrot: 3, tomato: 3 });
+    expect(res.body.inventory.crops.potato ?? 0).toBe(0); // locked crops arrive when their level does
+    expect(res.body.inventory.crops.pumpkin ?? 0).toBe(0);
     expect(res.body.inventory.seeds).toBeUndefined(); // a crop is also what you plant: there are no separate seeds
     expect(res.body.catalog).toHaveLength(4);
   });
@@ -37,7 +39,7 @@ describe('buying crops in the shop', () => {
     expect(res.body.error.code).toBe('insufficient_coins');
     const state = (await alice.agent.get('/api/game/state')).body;
     expect(state.player.coins).toBe(50);
-    expect(state.inventory.crops.tomato).toBe(0);
+    expect(state.inventory.crops.tomato).toBe(3);
   });
 
   it('never lets buying and re-selling a crop make coins', async () => {
@@ -92,7 +94,6 @@ describe('the full loop: plant a crop -> grow -> harvest crops -> sell', () => {
 
   it('levels up from harvesting and unlocks pumpkins', async () => {
     const { alice, clock, db } = await setup();
-    db.prepare("INSERT INTO inventory (user_id, kind, crop_id, quantity) VALUES (?, 'crop', 'tomato', 2)").run(alice.user.id); // tomatoes to plant
     for (let i = 0; i < 3; i++) await alice.agent.post(`/api/game/plots/${i}/plant`).send({ cropId: 'carrot' });
     await alice.agent.post('/api/game/plots/3/plant').send({ cropId: 'tomato' });
     await alice.agent.post('/api/game/plots/4/plant').send({ cropId: 'tomato' });
@@ -108,6 +109,22 @@ describe('the full loop: plant a crop -> grow -> harvest crops -> sell', () => {
     expect(buy.status).toBe(200);
   });
 
+  it('gives 3 of each newly unlocked crop exactly once, when the level is reached', async () => {
+    const { alice, clock, db } = await setup();
+    db.prepare('UPDATE players SET xp = 45').run(); // one carrot harvest (8 xp) crosses 50 xp => level 2
+    await alice.agent.post('/api/game/plots/0/plant').send({ cropId: 'carrot' });
+    clock.advance(15_000);
+    const res = await alice.agent.post('/api/game/plots/0/harvest');
+    expect(res.body.unlockedCrops.sort()).toEqual(['potato', 'pumpkin']);
+    expect(res.body.state.inventory.crops).toMatchObject({ potato: 3, pumpkin: 3 });
+    // later harvests at the same level give nothing more
+    await alice.agent.post('/api/game/plots/0/plant').send({ cropId: 'carrot' });
+    clock.advance(15_000);
+    const again = await alice.agent.post('/api/game/plots/0/harvest');
+    expect(again.body.unlockedCrops).toEqual([]);
+    expect(again.body.state.inventory.crops).toMatchObject({ potato: 3, pumpkin: 3 });
+  });
+
   it('reports leveledUp on the harvest that crosses the threshold', async () => {
     const { alice, clock, db } = await setup();
     db.prepare('UPDATE players SET xp = 45').run();
@@ -118,7 +135,8 @@ describe('the full loop: plant a crop -> grow -> harvest crops -> sell', () => {
   });
 
   it('rejects invalid plant/harvest/sell requests', async () => {
-    const { alice } = await setup();
+    const { alice, db } = await setup();
+    db.prepare("UPDATE inventory SET quantity = 0 WHERE user_id = ? AND crop_id = 'tomato'").run(alice.user.id); // none left to plant or sell
     expect((await alice.agent.post('/api/game/plots/9/plant').send({ cropId: 'carrot' })).body.error.code).toBe('plot_not_found');
     expect((await alice.agent.post('/api/game/plots/-1/harvest')).body.error.code).toBe('plot_not_found');
     expect((await alice.agent.post('/api/game/plots/abc/harvest')).status).toBe(400);

@@ -52,8 +52,9 @@ function Plot({ plot, catalog, now, onClick }) {
 
 export default function Farm({ state, now, selectedSeed, onSelectSeed, onPlotClick, hint, busy = false, events, use3d, onFail3d, panel, onTogglePanel, delivery, onOpenKiosk }) {
   const { catalog, inventory, farm } = state;
+  const unlocked = catalog.filter((c) => c.unlockLevel <= state.player.level); // locked crops stay off the tray until their level
   const hud = (overlay) => (
-    <FarmHud catalog={catalog} inventory={inventory} selectedSeed={selectedSeed} onSelectSeed={onSelectSeed} hint={hint}
+    <FarmHud catalog={unlocked} inventory={inventory} selectedSeed={selectedSeed} onSelectSeed={onSelectSeed} hint={hint}
       panel={panel} onTogglePanel={onTogglePanel} onOpenKiosk={onOpenKiosk} overlay={overlay} />
   );
   const classic = (

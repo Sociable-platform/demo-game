@@ -110,8 +110,7 @@ input:focus { outline: 3px solid #2f7fd1; outline-offset: 1px; }
 /* ---------- app shell ---------- */
 .app { min-height: 100vh; padding: 12px 14px 110px; max-width: 1180px; margin: 0 auto; }
 .community-clans { position: fixed; right: 16px; bottom: 16px; z-index: 50; }
-/* Keep the SDK's fixed-position panel inside this space above the game toggle. */
-.community-clan-panel { position: absolute; right: 0; bottom: calc(100% + 10px); width: min(390px, calc(100vw - 32px)); height: min(560px, calc(100dvh - 100px)); contain: layout; overflow: hidden; overscroll-behavior: contain; }
+.community-clan-panel { position: absolute; right: 0; bottom: calc(100% + 10px); width: min(390px, calc(100vw - 32px)); max-height: calc(100dvh - 100px); overflow: auto; overscroll-behavior: contain; }
 .topbar {
   display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center;
   background: var(--cream); border: 3px solid var(--tan); border-radius: var(--radius);
