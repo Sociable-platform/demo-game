@@ -26,11 +26,10 @@ function DiscoverPanel({ notify }) {
   </>;
 }
 
-export default function CommunityClans({ notify }) {
+export default function CommunityClans({ notify, open, onOpenChange }) {
   const panelId = useId();
-  const [open, setOpen] = useState(false);
   const toggle = useRef(null);
-  const close = () => { setOpen(false); toggle.current?.focus(); };
+  const close = () => { onOpenChange(false); toggle.current?.focus(); };
   return (
     <div className="community-clans">
       {open && (
@@ -40,7 +39,7 @@ export default function CommunityClans({ notify }) {
         </aside>
       )}
       <button ref={toggle} className="btn btn-primary" aria-expanded={open} aria-controls={panelId}
-        onClick={() => setOpen(value => !value)}>{open ? 'Hide clans' : 'Open clans'}</button>
+        onClick={() => onOpenChange(!open)}>{open ? 'Hide clans' : 'Open clans'}</button>
     </div>
   );
 }

@@ -25,7 +25,7 @@ const hasSeenTutorial = (userId) => {
   }
 };
 
-export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionExpired, notify }) {
+export default function GameScreen({ clansOpen = false, onCloseClans = () => {}, user, onLogout, onDeleteAccount, onSessionExpired, notify }) {
   const [farmEvents] = useState(createFarmEvents);
   const onActionResult = useCallback((res) => farmEvents.emit(res), [farmEvents]);
   const game = useGame({ notify, onSessionExpired, onActionResult });
@@ -36,7 +36,12 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
   const openKiosk = useCallback(() => setKioskOpen(true), []);
   const closeKiosk = useCallback(() => setKioskOpen(false), []);
   const drawerRef = useRef(null);
-  const togglePanel = useCallback((id) => setPanel((p) => (p === id ? null : id)), []);
+  // The clans window and the Shop/Barn/Quests drawer share the corner of the screen: opening one closes the other.
+  const togglePanel = useCallback((id) => {
+    setPanel((p) => (p === id ? null : id));
+    onCloseClans();
+  }, [onCloseClans]);
+  useEffect(() => { if (clansOpen) setPanel(null); }, [clansOpen]);
   useEffect(() => { if (panel) drawerRef.current?.focus(); }, [panel]);
   const fail3d = useCallback(() => setUse3d(false), []);
   const delivery = useDelivery({ game, use3d, ready: Boolean(state), onSessionExpired });
@@ -57,10 +62,11 @@ export default function GameScreen({ user, onLogout, onDeleteAccount, onSessionE
   useEffect(() => {
     if (!state) return;
     const owned = state.inventory.crops;
-    if (selectedSeed && owned[selectedSeed] > 0) return;
-    const firstOwned = state.catalog.find((c) => owned[c.id] > 0);
+    const open = state.catalog.filter((c) => c.unlockLevel <= state.player.level); // crops not unlocked yet are not offered
+    if (selectedSeed && owned[selectedSeed] > 0 && open.some((c) => c.id === selectedSeed)) return;
+    const firstOwned = open.find((c) => owned[c.id] > 0);
     if (firstOwned) setSelectedSeed(firstOwned.id);
-    else if (!selectedSeed) setSelectedSeed(state.catalog[0].id);
+    else if (!selectedSeed || !open.some((c) => c.id === selectedSeed)) setSelectedSeed(open[0]?.id ?? state.catalog[0].id);
   }, [state, selectedSeed]);
 
   const onPlotClick = (plot) => {

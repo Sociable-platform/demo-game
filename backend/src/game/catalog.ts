@@ -28,8 +28,11 @@ export const GRID_COLS = 3;
 export const GRID_SIZE = GRID_ROWS * GRID_COLS;
 
 export const STARTING_COINS = 50;
-/** You plant a crop to grow more of it (like a carrot in Minecraft): there are no separate seeds. */
-export const STARTING_CROPS: Readonly<Record<string, number>> = { carrot: 3 };
+/**
+ * You plant a crop to grow more of it (like a carrot in Minecraft): there are no separate seeds. A player is given this
+ * many of every crop the moment it unlocks: the level 1 crops at sign-up, the others on reaching their unlock level.
+ */
+export const UNLOCK_GIFT = 3;
 export const MAX_BUY_QUANTITY = 99;
 
 /** One harvest yields a random whole number of crops in this range (inclusive). XP is still per harvest. */

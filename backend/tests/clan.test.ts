@@ -122,6 +122,33 @@ describe('Clan player token bridge (mock Platform)', () => {
     } finally { db.close(); }
   });
 
+  it.each(['game_suspended', 'account_suspended'])('says Social is turned off when Platform answers 403 %s', async code => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ error: { code, message: `secret: ${key}` } }), { status: 403, headers: { 'Content-Type': 'application/json' } },
+    )));
+    const { app, db } = makeApp({ env });
+    try {
+      const { agent } = await signup(app, 'game_suspended');
+      const res = await agent.post('/api/clan/token').send({});
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('game_suspended');
+      expect(res.headers['cache-control']).toBe('no-store');
+      expect(res.text).not.toContain(key);
+      expect((await agent.get('/api/auth/me')).status).toBe(200);
+    } finally { db.close(); }
+  });
+
+  it('keeps a 403 with any other code as an upstream error', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ error: { code: 'invalid_api_key' } }), { status: 403, headers: { 'Content-Type': 'application/json' } },
+    )));
+    const { app, db } = makeApp({ env });
+    try {
+      const { agent } = await signup(app, 'clan_other403');
+      expect((await agent.post('/api/clan/token').send({})).body.error.code).toBe('clan_upstream_error');
+    } finally { db.close(); }
+  });
+
   it.each(['not json', '{}', 'null', '[]', '{"token":"x"}', '{"token":"bad token","expiresIn":3600}', '{"token":"x","expiresIn":0}'])
     ('rejects malformed upstream payload: %s', async body => {
       vi.stubGlobal('fetch', vi.fn(async () => new Response(body)));

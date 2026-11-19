@@ -3,6 +3,20 @@ import type { SessionUser } from '../auth/sessions.js';
 import { AppError } from '../http/errors.js';
 
 export const UPSTREAM_TIMEOUT_MS = 5000;
+
+// Platform refuses a key of a suspended game (or of a suspended developer) with 403 and one of
+// these codes. Only the code is read from its body: nothing else it sends is forwarded or logged.
+const SUSPENDED_CODES = new Set(['game_suspended', 'account_suspended']);
+const suspendedError = () => new AppError(403, 'game_suspended', 'Social features are turned off for this game right now.');
+
+async function isSuspension(upstream: Response): Promise<boolean> {
+  if (upstream.status !== 403) { await upstream.body?.cancel(); return false; }
+  try {
+    const body: unknown = await upstream.json();
+    const code = (body as { error?: { code?: unknown } } | null)?.error?.code;
+    return typeof code === 'string' && SUSPENDED_CODES.has(code);
+  } catch { return false; }
+}
 export function serviceEndpoint(value: string, path: string): URL | null {
   try {
     const base = new URL(value);
@@ -18,6 +32,7 @@ export async function issuePlayerToken(config: Config, player: Pick<SessionUser,
     throw new AppError(503, 'clan_not_configured', 'Clan authentication is not configured.');
   }
   const upstreamError = () => new AppError(502, 'clan_upstream_error', 'Clan authentication is temporarily unavailable.');
+  let suspended = false;
   const issuedAfter = Date.now(), controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
   try {
@@ -26,7 +41,10 @@ export async function issuePlayerToken(config: Config, player: Pick<SessionUser,
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-API-Key': config.clanGameApiKey },
       body: JSON.stringify({ externalPlayerId: player.userId, displayName: player.username }),
     });
-    if (!upstream.ok) { await upstream.body?.cancel(); throw upstreamError(); }
+    if (!upstream.ok) {
+      if (await isSuspension(upstream)) suspended = true;
+      throw upstreamError();
+    }
     const data: unknown = await upstream.json();
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw upstreamError();
     const { token, expiresIn } = data as Record<string, unknown>;
@@ -35,6 +53,7 @@ export async function issuePlayerToken(config: Config, player: Pick<SessionUser,
     return { token, expiresIn, expiresAt: issuedAfter + expiresIn * 1000 };
   } catch {
     // Never log/forward fetch errors, upstream bodies, headers, or credentials.
+    if (suspended) throw suspendedError();
     if (controller.signal.aborted) throw new AppError(504, 'clan_upstream_timeout', 'Clan authentication timed out. Please try again.');
     throw upstreamError();
   } finally { clearTimeout(timer); }

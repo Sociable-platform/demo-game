@@ -10,6 +10,16 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
  * - `now` is server-adjusted time, refreshed 4x per second, used only to DRAW progress.
  * - `busy` blocks overlapping requests (double clicks); the server independently guards against duplicates.
  */
+const pluralName = (name) => `${name}${/o$/i.test(name) ? 'es' : 's'}`;
+
+/** "Level up! You reached level 2. New crop unlocked: 3 Potatoes, 3 Pumpkins." */
+function levelUpText(r, cropName) {
+  const base = `Level up! You reached level ${r.newLevel}.`;
+  const crops = Array.isArray(r.unlockedCrops) ? r.unlockedCrops : [];
+  if (!crops.length) return base;
+  return `${base} New crop${crops.length === 1 ? '' : 's'} unlocked: ${crops.map((id) => `3 ${pluralName(cropName(id))}`).join(', ')}.`;
+}
+
 export function useGame({ notify, onSessionExpired, onActionResult }) {
   const [state, setState] = useState(null);
   const [now, setNow] = useState(() => Date.now());
@@ -112,8 +122,8 @@ export function useGame({ notify, onSessionExpired, onActionResult }) {
         () => api.harvest(plotIndex),
         (r) => {
           const n = Number.isInteger(r.yield) && r.yield > 0 ? r.yield : 1;
-          notify('success', `Harvested ${n} ${cropName(r.cropId)}${n === 1 ? '' : 's'}! +${r.xpGained} XP`);
-          if (r.leveledUp) notify('success', `Level up! You reached level ${r.newLevel}.`);
+          notify('success', `Harvested ${n} ${n === 1 ? cropName(r.cropId) : pluralName(cropName(r.cropId))}! +${r.xpGained} XP`);
+          if (r.leveledUp) notify('success', levelUpText(r, cropName));
         },
       ),
     // Clan quest: the server decides the clan, the accepted amount and the reward; we only render the answer.
@@ -150,7 +160,7 @@ export function useGame({ notify, onSessionExpired, onActionResult }) {
         (r) => {
           if (!r.granted) return notify('info', 'That quest reward was already claimed.');
           notify('success', `Quest complete! +${r.reward.xp} XP, +${r.reward.coins} coins`);
-          if (r.leveledUp) notify('success', `Level up! You reached level ${r.newLevel}.`);
+          if (r.leveledUp) notify('success', levelUpText(r, cropName));
           return undefined;
         },
       ),
