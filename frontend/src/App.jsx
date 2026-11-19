@@ -9,6 +9,8 @@ export default function App() {
   const [phase, setPhase] = useState('loading'); // loading | anon | ready
   const [user, setUser] = useState(null);
   const [devMode, setDevMode] = useState(false);
+  const [clansOpen, setClansOpen] = useState(false); // the clans window; closes whenever a game drawer opens, and vice versa
+  const closeClans = useCallback(() => setClansOpen(false), []);
   const { toasts, push, dismiss } = useToasts();
 
   useEffect(() => {
@@ -37,12 +39,14 @@ export default function App() {
       /* even if the request fails, drop the local view */
     }
     setUser(null);
+    setClansOpen(false);
     setPhase('anon');
     push('success', 'Logged out. See you soon!');
   }, [push]);
 
   const sessionExpired = useCallback(() => {
     setUser(null);
+    setClansOpen(false);
     setPhase('anon');
     push('error', 'Your session has ended. Please log in again.');
   }, [push]);
@@ -62,10 +66,10 @@ export default function App() {
       {phase === 'anon' && <AuthScreen devMode={devMode} onAuthed={onAuthed} notify={push} />}
       {phase === 'ready' && user && (
         // Switching accounts resets the game view.
-        <GameScreen key={`game:${user.id}`} user={user} onLogout={logout} onDeleteAccount={deleteAccount} onSessionExpired={sessionExpired} notify={push} />
+        <GameScreen key={`game:${user.id}`} clansOpen={clansOpen} onCloseClans={closeClans} user={user} onLogout={logout} onDeleteAccount={deleteAccount} onSessionExpired={sessionExpired} notify={push} />
       )}
       <Toasts toasts={toasts} dismiss={dismiss} />
-      {phase === 'ready' && user && <CommunityClans key={`clans:${user.id}`} notify={push} />}
+      {phase === 'ready' && user && <CommunityClans key={`clans:${user.id}`} notify={push} open={clansOpen} onOpenChange={setClansOpen} />}
     </>
   );
 }
